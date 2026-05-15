@@ -1,4 +1,4 @@
-# 🛰️ LC‑Ecosystem
+<h1 align="center">🛰️ LANET COMPUTERS ECO‑SYSTEM</h1>
 
 **A Private Cloud File‑Sharing Platform for Cyber‑Cafe Environments**
 
