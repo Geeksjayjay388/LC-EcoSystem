@@ -6,47 +6,24 @@ on conflict (id) do update
 set name = excluded.name,
     public = excluded.public;
 
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'storage'
-      and tablename = 'objects'
-      and policyname = 'Allow public viewing of files'
-  ) then
-    create policy "Allow public viewing of files"
-    on storage.objects for select
-    to public
-    using (bucket_id = 'ecosystem-vault');
-  end if;
+drop policy if exists "Allow public viewing of files" on storage.objects;
+drop policy if exists "Allow authenticated users to upload files" on storage.objects;
+drop policy if exists "Allow users to delete their own uploaded files" on storage.objects;
 
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'storage'
-      and tablename = 'objects'
-      and policyname = 'Allow authenticated users to upload files'
-  ) then
-    create policy "Allow authenticated users to upload files"
-    on storage.objects for insert
-    to authenticated
-    with check (bucket_id = 'ecosystem-vault');
-  end if;
+create policy "Allow public viewing of files"
+on storage.objects for select
+to public
+using (bucket_id = 'ecosystem-vault');
 
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'storage'
-      and tablename = 'objects'
-      and policyname = 'Allow users to delete their own uploaded files'
-  ) then
-    create policy "Allow users to delete their own uploaded files"
-    on storage.objects for delete
-    to authenticated
-    using (bucket_id = 'ecosystem-vault' and auth.uid() = owner);
-  end if;
-end $$;
+create policy "Allow authenticated users to upload files"
+on storage.objects for insert
+to authenticated
+with check (bucket_id = 'ecosystem-vault');
+
+create policy "Allow users to delete their own uploaded files"
+on storage.objects for delete
+to authenticated
+using (bucket_id = 'ecosystem-vault' and auth.uid() = owner);
 
 create table if not exists public.lc_files (
   id uuid default gen_random_uuid() primary key,
@@ -59,46 +36,23 @@ create table if not exists public.lc_files (
 
 alter table public.lc_files enable row level security;
 
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'lc_files'
-      and policyname = 'Authenticated users can view files'
-  ) then
-    create policy "Authenticated users can view files"
-    on public.lc_files for select
-    to authenticated
-    using (true);
-  end if;
+drop policy if exists "Authenticated users can view files" on public.lc_files;
+drop policy if exists "Authenticated users can upload files" on public.lc_files;
+drop policy if exists "Users can delete their own files" on public.lc_files;
 
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'lc_files'
-      and policyname = 'Authenticated users can upload files'
-  ) then
-    create policy "Authenticated users can upload files"
-    on public.lc_files for insert
-    to authenticated
-    with check (auth.uid() = owner_id);
-  end if;
+create policy "Authenticated users can view files"
+on public.lc_files for select
+to authenticated
+using (true);
 
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'lc_files'
-      and policyname = 'Users can delete their own files'
-  ) then
-    create policy "Users can delete their own files"
-    on public.lc_files for delete
-    to authenticated
-    using (auth.uid() = owner_id);
-  end if;
-end $$;
+create policy "Authenticated users can upload files"
+on public.lc_files for insert
+to authenticated
+with check (auth.uid() = owner_id);
+
+create policy "Users can delete their own files"
+on public.lc_files for delete
+to authenticated
+using (auth.uid() = owner_id);
 
 select pg_notify('pgrst', 'reload schema');
