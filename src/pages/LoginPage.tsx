@@ -43,8 +43,15 @@ const LoginPage = () => {
                 <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-indigo-100 blur-3xl" />
             </div>
             <div className="relative mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70 lg:grid-cols-2">
-                <section className="hidden bg-gradient-to-br from-blue-700 to-blue-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-                    <div>
+                <section className="relative hidden overflow-hidden bg-gradient-to-br from-blue-700 to-blue-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+                    <img
+                        src="/login-panel-bg.svg"
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-70"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-700/60 via-blue-800/65 to-blue-950/80" />
+                    <div className="relative">
                         <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20">
                             <Monitor className="h-7 w-7" />
                         </div>
@@ -53,7 +60,7 @@ const LoginPage = () => {
                             Secure vault access for uploading, previewing, and downloading files across devices.
                         </p>
                     </div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    <p className="relative text-xs uppercase tracking-[0.2em] text-slate-200">
                         Authorized Access • Node Protocol
                     </p>
                 </section>
