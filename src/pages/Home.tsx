@@ -233,51 +233,56 @@ function Home({ session }: HomeProps) {
       <main className="relative z-10 mx-auto max-w-7xl p-6 lg:p-10 space-y-8">
         
         {/* Simplified Stats Bar */}
-        <section className="grid gap-4 sm:grid-cols-3">
+        <section className="grid gap-6 sm:grid-cols-3">
             {[
-                { label: "Vault Objects", val: files.length, icon: FileText, color: "text-blue-600" },
-                { label: "Storage Capacity", val: formatFileSize(files.reduce((a, b) => a + b.file_size, 0)), icon: HardDrive, color: "text-slate-600" },
-                { label: "My Contributions", val: files.filter(f => f.owner_id === session.user.id).length, icon: User, color: "text-emerald-600" }
+                { label: "Vault Objects", val: files.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
+                { label: "Storage Used", val: formatFileSize(files.reduce((a, b) => a + b.file_size, 0)), icon: HardDrive, color: "text-slate-600", bg: "bg-slate-50" },
+                { label: "My Contributions", val: files.filter(f => f.owner_id === session.user.id).length, icon: User, color: "text-emerald-600", bg: "bg-emerald-50" }
             ].map((stat, i) => (
-                <div key={i} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+                <div key={i} className="group bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex items-center justify-between hover:border-blue-400/50 hover:shadow-md transition-all duration-300">
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
-                        <p className="text-xl font-bold text-slate-900">{stat.val}</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1.5">{stat.label}</p>
+                        <p className="text-2xl font-black text-slate-900 tracking-tight">{stat.val}</p>
                     </div>
-                    <stat.icon className={`h-5 w-5 ${stat.color} opacity-60`} />
+                    <div className={`${stat.bg} p-3 rounded-2xl group-hover:scale-110 transition-transform`}>
+                        <stat.icon className={`h-6 w-6 ${stat.color} opacity-80`} />
+                    </div>
                 </div>
             ))}
         </section>
 
         {/* Search & Upload Bar */}
-        <section className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <section className="flex flex-col md:flex-row gap-4 items-center bg-white p-2 rounded-[28px] border border-slate-200 shadow-sm">
+            <div className="relative flex-1 group">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <input
                     type="text"
-                    placeholder="Search the vault..."
-                    className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all text-sm shadow-sm"
+                    placeholder="Search the encrypted vault..."
+                    className="w-full bg-transparent border-none rounded-2xl py-4 pl-14 pr-6 focus:ring-0 text-sm font-medium placeholder:text-slate-400"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <label className="flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 active:scale-95 whitespace-nowrap">
-                {uploading ? <Loader className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {uploading ? "Uploading..." : "Upload New File"}
+            <label className="flex items-center gap-3 cursor-pointer bg-slate-900 hover:bg-blue-600 text-white px-10 py-4 rounded-[22px] font-bold text-sm transition-all shadow-xl shadow-slate-200 active:scale-95 whitespace-nowrap group">
+                {uploading ? <Loader className="h-4 w-4 animate-spin" /> : <Upload className="h-5 w-5 transition-transform group-hover:-translate-y-1" />}
+                {uploading ? "Uploading..." : "Add Files"}
                 <input type="file" multiple className="hidden" onChange={handleUpload} disabled={uploading} />
             </label>
         </section>
 
-        {/* File Browser */}
+        {/* File Browser section */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-3">
-              <span className="h-8 w-1 bg-blue-600 rounded-full" />
-              Recent Vault Objects
-            </h2>
-            <span className="bg-slate-200/50 text-slate-500 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter">
-              {filteredFiles.length} Results
-            </span>
+          <div className="flex items-center justify-between pt-4">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-1 bg-blue-600 rounded-full" />
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">Recent Vault Objects</h2>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-0.5">Central Cloud Feed</p>
+                </div>
+              </div>
+              <span className="bg-slate-100 text-slate-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">
+                {filteredFiles.length} Objects Found
+              </span>
           </div>
 
           {loadingFiles ? (
