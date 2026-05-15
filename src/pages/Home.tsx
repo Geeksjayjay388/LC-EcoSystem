@@ -10,7 +10,10 @@ import {
   FileText, 
   HardDrive, 
   User,
-  FileCode
+  FileCode,
+  Eye,
+  X,
+  ShieldCheck
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -50,6 +53,10 @@ function isImageFile(fileName: string): boolean {
   return ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension);
 }
 
+function isPdfFile(fileName: string): boolean {
+  return fileName.split(".").pop()?.toLowerCase() === "pdf";
+}
+
 function Home({ session }: HomeProps) {
   const [files, setFiles] = useState<EcosystemFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
@@ -58,6 +65,8 @@ function Home({ session }: HomeProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [pendingDelete, setPendingDelete] = useState<EcosystemFile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<EcosystemFile | null>(null);
 
   const fetchFiles = async () => {
     const { data, error: fetchError } = await supabase
@@ -66,42 +75,85 @@ function Home({ session }: HomeProps) {
       .order("created_at", { ascending: false });
 
     if (fetchError) setError(fetchError.message);
-    else setFiles(data ?? []);
+    else {
+      setError(null);
+      setFiles(data ?? []);
+    }
     setLoadingFiles(false);
   };
 
   useEffect(() => {
-    fetchFiles();
+    let active = true;
+
+    void supabase
+      .from("lc_files")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data, error: fetchError }) => {
+        if (!active) return;
+        if (fetchError) {
+          setError(fetchError.message);
+        } else {
+          setError(null);
+          setFiles(data ?? []);
+        }
+        setLoadingFiles(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (!selectedFiles.length) return;
 
     setUploading(true);
     setError(null);
+    setUploadSuccessMessage(null);
 
-    const storagePath = `${session.user.id}/${Date.now()}-${file.name}`;
-    const { error: storageError } = await supabase.storage
-      .from("ecosystem-vault")
-      .upload(storagePath, file);
+    let uploadedCount = 0;
 
-    if (storageError) {
-      setError(storageError.message);
-      setUploading(false);
-      return;
+    for (const file of selectedFiles) {
+      const storagePath = `${session.user.id}/${Date.now()}-${file.name}`;
+      const { error: storageError } = await supabase.storage
+        .from("ecosystem-vault")
+        .upload(storagePath, file, { upsert: false });
+
+      if (storageError) {
+        setError(`Failed on "${file.name}": ${storageError.message}`);
+        setUploading(false);
+        event.target.value = "";
+        return;
+      }
+
+      const { data: publicData } = supabase.storage.from("ecosystem-vault").getPublicUrl(storagePath);
+      const { error: insertError } = await supabase.from("lc_files").insert({
+        name: file.name,
+        public_url: publicData.publicUrl,
+        file_size: file.size,
+      });
+
+      if (insertError) {
+        setError(`Failed on "${file.name}": ${insertError.message}`);
+        setUploading(false);
+        event.target.value = "";
+        return;
+      }
+
+      uploadedCount += 1;
     }
 
-    const { data: publicData } = supabase.storage.from("ecosystem-vault").getPublicUrl(storagePath);
-
-    await supabase.from("lc_files").insert({
-      name: file.name,
-      public_url: publicData.publicUrl,
-      file_size: file.size,
-    });
-
+    event.target.value = "";
     setUploading(false);
-    fetchFiles();
+    setUploadSuccessMessage(
+      uploadedCount === 1
+        ? `Successfully uploaded "${selectedFiles[0].name}".`
+        : `Successfully uploaded ${uploadedCount} files.`
+    );
+    setLoadingFiles(true);
+    await fetchFiles();
   };
 
   const handleDelete = async (file: EcosystemFile) => {
@@ -140,9 +192,14 @@ function Home({ session }: HomeProps) {
   }, [files, searchTerm]);
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans relative">
+      {/* Subtle Background Glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-1/4 -top-1/4 h-1/2 w-1/2 rounded-full bg-blue-50/50 blur-[120px]" />
+      </div>
+
       {/* Header */}
-      <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-md">
+      <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center border border-slate-100 shadow-sm">
@@ -173,52 +230,42 @@ function Home({ session }: HomeProps) {
         </div>
       </nav>
 
-      <main className="mx-auto max-w-7xl p-6 lg:p-10 space-y-8">
+      <main className="relative z-10 mx-auto max-w-7xl p-6 lg:p-10 space-y-8">
         
-        {/* Top Control Bar */}
-        <section className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            {/* White Search Bar */}
-            <div className="relative w-full md:max-w-md">
+        {/* Simplified Stats Bar */}
+        <section className="grid gap-4 sm:grid-cols-3">
+            {[
+                { label: "Vault Objects", val: files.length, icon: FileText, color: "text-blue-600" },
+                { label: "Storage Capacity", val: formatFileSize(files.reduce((a, b) => a + b.file_size, 0)), icon: HardDrive, color: "text-slate-600" },
+                { label: "My Contributions", val: files.filter(f => f.owner_id === session.user.id).length, icon: User, color: "text-emerald-600" }
+            ].map((stat, i) => (
+                <div key={i} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
+                        <p className="text-xl font-bold text-slate-900">{stat.val}</p>
+                    </div>
+                    <stat.icon className={`h-5 w-5 ${stat.color} opacity-60`} />
+                </div>
+            ))}
+        </section>
+
+        {/* Search & Upload Bar */}
+        <section className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                     type="text"
-                    placeholder="Search file repository..."
-                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-2xl py-3.5 pl-12 pr-4 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all placeholder:text-slate-400 text-sm shadow-sm"
+                    placeholder="Search the vault..."
+                    className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all text-sm shadow-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            
-            <label className="flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 active:scale-95">
+            <label className="flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 active:scale-95 whitespace-nowrap">
                 {uploading ? <Loader className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {uploading ? "Uploading..." : "Upload New File"}
-                <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
+                <input type="file" multiple className="hidden" onChange={handleUpload} disabled={uploading} />
             </label>
-        </section>
-
-        {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* Stats Grid */}
-        <section className="grid gap-6 md:grid-cols-3">
-          {[
-            { label: "Total Files", val: files.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
-            { label: "Storage Capacity", val: formatFileSize(files.reduce((a, b) => a + b.file_size, 0)), icon: HardDrive, color: "text-indigo-600", bg: "bg-indigo-50" },
-            { label: "Your Uploads", val: files.filter(f => f.owner_id === session.user.id).length, icon: User, color: "text-emerald-600", bg: "bg-emerald-50" }
-          ].map((stat, i) => (
-            <div key={i} className="bg-white border border-slate-200/60 p-6 rounded-[24px] shadow-sm flex items-center justify-between group hover:border-blue-200 transition-colors">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
-                <p className="text-2xl font-black text-slate-900">{stat.val}</p>
-              </div>
-              <div className={`${stat.bg} p-3 rounded-2xl`}>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
-              </div>
-            </div>
-          ))}
         </section>
 
         {/* File Browser */}
@@ -242,15 +289,36 @@ function Home({ session }: HomeProps) {
               {filteredFiles.map((file) => (
                 <div key={file.id} className="group bg-white border border-slate-200 rounded-[28px] overflow-hidden hover:shadow-2xl hover:shadow-slate-200 transition-all duration-300 flex flex-col">
                   {/* Thumbnail */}
-                  <div className="aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center border-b border-slate-100">
+                  <div 
+                    onClick={() => (isImageFile(file.name) || isPdfFile(file.name)) && setPreviewFile(file)}
+                    className={`aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center border-b border-slate-100 ${ (isImageFile(file.name) || isPdfFile(file.name)) ? 'cursor-pointer' : ''}`}
+                  >
                     {isImageFile(file.name) ? (
                       <img src={file.public_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    ) : isPdfFile(file.name) ? (
+                      <div className="w-full h-full relative overflow-hidden bg-slate-100">
+                        <iframe 
+                          src={`${file.public_url}#page=1&toolbar=0&navpanes=0&scrollbar=0`} 
+                          className="w-[200%] h-[200%] border-none origin-top-left scale-[0.5] pointer-events-none"
+                          title="PDF Preview"
+                        />
+                        <div className="absolute top-2 right-2 rounded bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-sm">
+                          PDF
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center gap-3">
                         <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center">
                             <FileCode className="h-8 w-8 text-slate-400" />
                         </div>
                         <span className="text-[10px] font-black text-blue-600 tracking-widest">{getFileExtension(file.name)}</span>
+                      </div>
+                    )}
+                    
+                    {/* Hover Overlay */}
+                    {(isImageFile(file.name) || isPdfFile(file.name)) && (
+                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Eye className="h-8 w-8 text-white" />
                       </div>
                     )}
                   </div>
@@ -271,6 +339,14 @@ function Home({ session }: HomeProps) {
                         <Download className="h-3.5 w-3.5" />
                         Download
                       </button>
+                      {(isImageFile(file.name) || isPdfFile(file.name)) && (
+                        <button 
+                          onClick={() => setPreviewFile(file)}
+                          className="bg-white border border-slate-200 hover:border-blue-200 hover:text-blue-600 text-slate-400 p-3 rounded-xl transition-all active:scale-95"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      )}
                       {file.owner_id === session.user.id && (
                         <button 
                           onClick={() => setPendingDelete(file)}
@@ -286,6 +362,19 @@ function Home({ session }: HomeProps) {
             </div>
           )}
         </div>
+
+        {uploadSuccessMessage && (
+          <div className="fixed bottom-6 right-6 z-50 w-full max-w-sm rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-xl">
+            <p className="text-sm font-semibold text-emerald-800">{uploadSuccessMessage}</p>
+            <button
+              type="button"
+              onClick={() => setUploadSuccessMessage(null)}
+              className="mt-2 text-xs font-bold uppercase tracking-wide text-emerald-700 hover:text-emerald-900"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {pendingDelete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4">
@@ -312,6 +401,40 @@ function Home({ session }: HomeProps) {
                 >
                   {deleting ? "Deleting..." : "Delete file"}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {previewFile && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 p-4 lg:p-10">
+            <div className="relative w-full max-w-5xl h-full flex flex-col">
+              <div className="flex items-center justify-between p-4 bg-white rounded-t-3xl border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                    {isPdfFile(previewFile.name) ? <FileText className="h-4 w-4 text-red-600" /> : <Eye className="h-4 w-4 text-blue-600" />}
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm truncate max-w-xs">{previewFile.name}</h3>
+                </div>
+                <button 
+                  onClick={() => setPreviewFile(null)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5 text-slate-500" />
+                </button>
+              </div>
+              <div className="flex-1 bg-slate-100 overflow-hidden rounded-b-3xl">
+                {isPdfFile(previewFile.name) ? (
+                  <iframe 
+                    src={`${previewFile.public_url}#toolbar=0`} 
+                    className="w-full h-full border-none"
+                    title="PDF Preview"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center p-4">
+                    <img src={previewFile.public_url} alt="" className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
