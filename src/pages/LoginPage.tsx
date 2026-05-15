@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Using react-router-dom for /pages structure
-import { supabase } from '../lib/supabase'; // Adjust based on your folder structure
-import { Loader2, Monitor, ShieldCheck } from 'lucide-react';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Loader2, Monitor, ShieldCheck } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 const LoginPage = () => {
   const [deviceId, setDeviceId] = useState('');
@@ -17,7 +17,7 @@ const LoginPage = () => {
 
     // Convert the ID to a format Supabase Auth expects
     // e.g., "2343" becomes "2343@lc.local"
-    const formattedEmail = `${deviceId}@lc.local`;
+    const formattedEmail = `${deviceId.trim()}@lc.local`;
 
     const { error } = await supabase.auth.signInWithPassword({
       email: formattedEmail,
@@ -28,7 +28,7 @@ const LoginPage = () => {
       setError("Invalid Device ID or Password");
       setLoading(false);
     } else {
-      navigate('/'); // Go to homepage feed
+      navigate("/home");
     }
   };
 

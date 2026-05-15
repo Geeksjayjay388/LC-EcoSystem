@@ -17,7 +17,7 @@ Cross-Device Access: Send a document from a home laptop and download it at the c
 🛠️ Tech Stack
 IDE: Antigravity
 
-Framework: Next.js (App Router)
+Framework: React + Vite
 
 Language: TypeScript
 
@@ -45,11 +45,11 @@ Bash
 git clone https://github.com/yourusername/lc-ecosystem.git
 
 Configure Environment Variables:
-Create a .env.local file in the root and add your Supabase credentials:
+Create a `.env.local` file in the root and add your Supabase credentials:
 
 Code snippet
-   NEXT_PUBLIC_SUPABASE_URL=your_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+   VITE_SUPABASE_URL=your_project_url
+   VITE_SUPABASE_ANON_KEY=your_anon_key
 
 Initialize Supabase:
 
