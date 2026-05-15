@@ -21,12 +21,14 @@ In many cyber‑cafés and shared‑computer labs, users still rely on **physica
 
 ## 🚀 Core Features
 
-- **Secure Authentication** – Supabase Auth powers per‑user accounts.
-- **Cloud Posting** – Upload images, PDFs, docs, etc., to a shared vault.
-- **Centralized Feed** – Browse, download, and manage files from a single homepage.
+- **Secure Authentication** – Terminal-node authorization powered by Supabase.
+- **Interactive Dashboard** – Monitor storage utilization and personal contributions in real-time.
+- **Instant Previews** – View PDFs and images directly in the browser with our built-in previewer.
+- **Cloud Posting** – Upload images, PDFs, docs, etc., to a shared vault instantly.
+- **Centralized Feed** – A sleek, minimalist browser for all vault objects.
 - **Persistent Storage** – Hosted on Vercel with Supabase PostgreSQL; data never vanishes when servers sleep.
-- **Cross‑Device Access** – Upload on a home laptop, download instantly at the cyber‑café counter.
-- **Granular Row‑Level Security** – Users can only view public files and delete their own uploads.
+- **Cross-Device Access** – Access your private vault from any terminal in the eco-system.
+- **Premium UI/UX** – Interactive dot-grid backgrounds and responsive, modern designs.
 
 ---
 
