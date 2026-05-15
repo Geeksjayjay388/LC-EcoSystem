@@ -13,7 +13,8 @@ import {
   FileCode,
   Eye,
   X,
-  ShieldCheck
+  ShieldCheck,
+  CheckCircle2
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -369,15 +370,29 @@ function Home({ session }: HomeProps) {
         </div>
 
         {uploadSuccessMessage && (
-          <div className="fixed bottom-6 right-6 z-50 w-full max-w-sm rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-xl">
-            <p className="text-sm font-semibold text-emerald-800">{uploadSuccessMessage}</p>
-            <button
-              type="button"
-              onClick={() => setUploadSuccessMessage(null)}
-              className="mt-2 text-xs font-bold uppercase tracking-wide text-emerald-700 hover:text-emerald-900"
-            >
-              Dismiss
-            </button>
+          <div className="fixed bottom-6 right-6 z-50 w-full max-w-sm rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xl shadow-emerald-200/50 animate-in slide-in-from-right-10 duration-500">
+            <div className="flex gap-4">
+              <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-900">Success</p>
+                <p className="text-xs text-slate-500 mt-0.5">{uploadSuccessMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => setUploadSuccessMessage(null)}
+                  className="mt-3 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <button 
+                onClick={() => setUploadSuccessMessage(null)}
+                className="text-slate-300 hover:text-slate-400"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
 
