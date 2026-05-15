@@ -33,8 +33,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#020617] text-slate-200">
-        Connecting to LC-Ecosystem...
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 text-slate-700">
+        Connecting to Lanet Computers Eco-System...
       </div>
     );
   }

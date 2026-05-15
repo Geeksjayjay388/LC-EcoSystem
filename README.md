@@ -1,76 +1,103 @@
-🛸 LC-Ecosystem
-A Private Cloud File-Sharing Platform for Cyber Environments.
+# 🛰️ LC‑Ecosystem
 
-LC-Ecosystem is a custom-built, secure platform designed to replace physical flash disks. It allows users to "Post" files, images, and documents to a central vault and access them from any computer within the network or remotely.
+**A Private Cloud File‑Sharing Platform for Cyber‑Cafe Environments**
 
-🚀 Core Features
-Secure Authentication: User-specific accounts powered by Supabase Auth.
+---
 
-Cloud Posting: Upload files (images, PDFs, Docs) directly to the ecosystem-vault.
+## 📢 Problem Statement
 
-Centralized Feed: A unified homepage to view, download, and manage files.
+In many cyber‑cafés and shared‑computer labs, users still rely on **physical flash drives** to transfer files between workstations. This approach is:
+- **Time‑consuming** – users must physically walk between terminals.
+- **Risky** – drives can be lost, infected, or contain sensitive data.
+- **Inconvenient** – limits collaboration and instant access.
 
-Persistent Storage: Hosted on Vercel with a Supabase PostgreSQL backend—no data loss when servers sleep.
+**LC‑Ecosystem** was created to eliminate these pain points by providing a **fast, secure, and cloud‑native** solution that works seamlessly across all machines in a network, allowing users to post, retrieve, and manage files instantly.
 
-Cross-Device Access: Send a document from a home laptop and download it at the cyber counter instantly.
+---
 
-🛠️ Tech Stack
-IDE: Antigravity
+## 🚀 Core Features
 
-Framework: React + Vite
+- **Secure Authentication** – Supabase Auth powers per‑user accounts.
+- **Cloud Posting** – Upload images, PDFs, docs, etc., to a shared vault.
+- **Centralized Feed** – Browse, download, and manage files from a single homepage.
+- **Persistent Storage** – Hosted on Vercel with Supabase PostgreSQL; data never vanishes when servers sleep.
+- **Cross‑Device Access** – Upload on a home laptop, download instantly at the cyber‑café counter.
+- **Granular Row‑Level Security** – Users can only view public files and delete their own uploads.
 
-Language: TypeScript
+---
 
-Database & Auth: Supabase
+## 🛠️ Tech Stack
 
-Storage: Supabase Storage (S3 Wrapper)
+| Category | Technology |
+|----------|------------|
+| **IDE** | Antigravity |
+| **Framework** | Vite + React (TSX) |
+| **Language** | TypeScript |
+| **Auth & DB** | Supabase (Auth, PostgreSQL, Storage) |
+| **Styling** | Tailwind CSS |
+| **Hosting** | Vercel |
 
-Hosting: Vercel
+---
 
-Styling: Tailwind CSS
+## 📦 Setup & Installation
 
-📦 Database Schema (lc_files)
-Column	Type	Description
-id	UUID	Primary Key
-name	Text	Original file name
-public_url	Text	Link to download the file
-owner_id	UUID	References auth.users
-file_size	Int8	Size in bytes
-created_at	Timestamp	Upload date/time
+```bash
+# Clone the repository
+git clone https://github.com/geeksjayjay388/lc-ecosystem.git
+cd lc-ecosystem
 
-⚙️ Setup & Installation
-Clone the repository:
+# Install dependencies
+npm install
 
-Bash
-git clone https://github.com/yourusername/lc-ecosystem.git
+# Install Tailwind‑Vite plugin (required for styling)
+npm install @tailwindcss/vite
+```
 
-Configure Environment Variables:
-Create a `.env.local` file in the root and add your Supabase credentials:
+### Environment Variables
+Create a `.env` file at the project root (or copy from `.env.example`) with the following keys:
 
-Code snippet
-   VITE_SUPABASE_URL=your_project_url
-   VITE_SUPABASE_ANON_KEY=your_anon_key
+```dotenv
+VITE_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+> **Note:** The variables must be prefixed with `VITE_` so Vite can expose them to the client.
 
-Initialize Supabase:
+### Database & Storage
+1. Open the Supabase dashboard → **SQL editor**.
+2. Run the contents of `src/lib/supabase.sql` to create:
+   - `ecosystem‑vault` storage bucket
+   - `lc_files` table
+   - Row‑level security policies
+3. Ensure the bucket is **public** for downloading files.
 
-Create a bucket named ecosystem-vault in Storage.
+---
 
-Run the provided SQL migration to create the lc_files table.
+## ▶️ Development
 
-Enable Row Level Security (RLS) policies.
+```bash
+npm run dev
+```
+Open <http://localhost:5173> in your browser. The app will hot‑reload on changes.
 
-Run Development Mode:
+---
 
-Bash
-   npm run dev
 
-🛡️ Security Policies (RLS)
-The ecosystem uses strict Row Level Security:
+---
 
-View: All authenticated users can view and download files.
+## 🤝 Contributing
 
-Upload: Only authenticated users can upload.
+Contributions are welcome! Please:
+1. Fork the repo.
+2. Create a feature branch (`git checkout -b feature/awesome‑feature`).
+3. Ensure the app runs locally and passes TypeScript checks.
+4. Open a Pull Request describing the change.
 
-Delete: Users can only delete files they personally uploaded.
+---
 
-Developed with 💻 in the Antigravity IDE.
+## 📄 License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
+
+---
+
+*Developed by Engineer Jacob-Sihul.*
