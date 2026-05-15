@@ -13,7 +13,6 @@ import {
   FileCode,
   Eye,
   X,
-  ShieldCheck,
   CheckCircle2
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
@@ -75,8 +74,9 @@ function Home({ session }: HomeProps) {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (fetchError) setError(fetchError.message);
-    else {
+    if (fetchError) {
+      setError(fetchError.message);
+    } else {
       setError(null);
       setFiles(data ?? []);
     }
@@ -270,6 +270,12 @@ function Home({ session }: HomeProps) {
                 <input type="file" multiple className="hidden" onChange={handleUpload} disabled={uploading} />
             </label>
         </section>
+
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        )}
 
         {/* File Browser section */}
         <div className="space-y-6">
