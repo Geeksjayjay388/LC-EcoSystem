@@ -411,40 +411,48 @@ function Home({ session }: HomeProps) {
           </div>
         )}
 
-        {previewFile && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 p-4 lg:p-10">
-            <div className="relative w-full max-w-5xl h-full flex flex-col">
-              <div className="flex items-center justify-between p-4 bg-white rounded-t-3xl border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                    {isPdfFile(previewFile.name) ? <FileText className="h-4 w-4 text-red-600" /> : <Eye className="h-4 w-4 text-blue-600" />}
-                  </div>
-                  <h3 className="font-bold text-slate-900 text-sm truncate max-w-xs">{previewFile.name}</h3>
-                </div>
-                <button 
-                  onClick={() => setPreviewFile(null)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X className="h-5 w-5 text-slate-500" />
-                </button>
-              </div>
-              <div className="flex-1 bg-slate-100 overflow-hidden rounded-b-3xl">
-                {isPdfFile(previewFile.name) ? (
-                  <iframe 
-                    src={`${previewFile.public_url}#toolbar=0`} 
-                    className="w-full h-full border-none"
-                    title="PDF Preview"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center p-4">
-                    <img src={previewFile.public_url} alt="" className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         )}
       </main>
+
+      {/* Full-Screen Preview Portal */}
+      {previewFile && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-950/90 p-4 lg:p-10 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="relative w-full max-w-6xl h-full flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 bg-white rounded-t-[32px] border-b border-slate-100">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+                  {isPdfFile(previewFile.name) ? <FileText className="h-5 w-5 text-red-600" /> : <Eye className="h-5 w-5 text-blue-600" />}
+                </div>
+                <div>
+                    <h3 className="font-bold text-slate-900 text-sm truncate max-w-md">{previewFile.name}</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{formatFileSize(previewFile.file_size)}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setPreviewFile(null)}
+                className="h-10 w-10 flex items-center justify-center hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200"
+              >
+                <X className="h-5 w-5 text-slate-500" />
+              </button>
+            </div>
+            {/* Content Area */}
+            <div className="flex-1 bg-white overflow-hidden rounded-b-[32px]">
+              {isPdfFile(previewFile.name) ? (
+                <iframe 
+                  src={`${previewFile.public_url}#toolbar=0&navpanes=0`} 
+                  className="w-full h-full border-none"
+                  title="PDF Preview"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center p-8 bg-slate-50">
+                  <img src={previewFile.public_url} alt="" className="max-w-full max-h-full object-contain shadow-xl rounded-lg" />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
