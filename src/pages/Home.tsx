@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Download, Loader2, LogOut, Search, Trash2, Upload } from "lucide-react";
+import { 
+  Download, 
+  LogOut, 
+  Search, 
+  Trash2, 
+  Upload, 
+  FileText, 
+  HardDrive, 
+  User,
+  FileCode
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type HomeProps = {
@@ -27,23 +37,17 @@ function formatFileSize(bytes: number): string {
 function extractStoragePath(publicUrl: string): string | null {
   const marker = "/object/public/ecosystem-vault/";
   const start = publicUrl.indexOf(marker);
-
-  if (start === -1) {
-    return null;
-  }
-
+  if (start === -1) return null;
   return decodeURIComponent(publicUrl.slice(start + marker.length));
 }
 
 function getFileExtension(fileName: string): string {
-  const parts = fileName.split(".");
-  if (parts.length < 2) return "FILE";
-  return parts[parts.length - 1].toUpperCase();
+  return fileName.split(".").pop()?.toUpperCase() || "FILE";
 }
 
 function isImageFile(fileName: string): boolean {
-  const extension = getFileExtension(fileName).toLowerCase();
-  return ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(extension);
+  const extension = fileName.split(".").pop()?.toLowerCase() || "";
+  return ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension);
 }
 
 function Home({ session }: HomeProps) {
@@ -52,46 +56,22 @@ function Home({ session }: HomeProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<EcosystemFile | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchFiles = async () => {
-    setError(null);
-
     const { data, error: fetchError } = await supabase
       .from("lc_files")
-      .select("id, name, public_url, owner_id, file_size, created_at")
+      .select("*")
       .order("created_at", { ascending: false });
 
-    if (fetchError) {
-      setError(fetchError.message);
-      setLoadingFiles(false);
-      return;
-    }
-
-    setFiles(data ?? []);
+    if (fetchError) setError(fetchError.message);
+    else setFiles(data ?? []);
     setLoadingFiles(false);
   };
 
   useEffect(() => {
-    let active = true;
-
-    void supabase
-      .from("lc_files")
-      .select("id, name, public_url, owner_id, file_size, created_at")
-      .order("created_at", { ascending: false })
-      .then(({ data, error: fetchError }) => {
-        if (!active) return;
-        if (fetchError) {
-          setError(fetchError.message);
-          setLoadingFiles(false);
-          return;
-        }
-        setFiles(data ?? []);
-        setLoadingFiles(false);
-      });
-
-    return () => {
-      active = false;
-    };
+    fetchFiles();
   }, []);
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -104,254 +84,248 @@ function Home({ session }: HomeProps) {
     const storagePath = `${session.user.id}/${Date.now()}-${file.name}`;
     const { error: storageError } = await supabase.storage
       .from("ecosystem-vault")
-      .upload(storagePath, file, { upsert: false });
+      .upload(storagePath, file);
 
     if (storageError) {
-      setError(`Storage upload failed: ${storageError.message}`);
+      setError(storageError.message);
       setUploading(false);
       return;
     }
 
-    const { data: publicData } = supabase.storage
-      .from("ecosystem-vault")
-      .getPublicUrl(storagePath);
+    const { data: publicData } = supabase.storage.from("ecosystem-vault").getPublicUrl(storagePath);
 
-    const { error: insertError } = await supabase.from("lc_files").insert({
+    await supabase.from("lc_files").insert({
       name: file.name,
       public_url: publicData.publicUrl,
       file_size: file.size,
     });
 
-    if (insertError) {
-      setError(`Metadata insert failed: ${insertError.message}`);
-      setUploading(false);
-      return;
-    }
-
-    event.target.value = "";
     setUploading(false);
-    setLoadingFiles(true);
-    await fetchFiles();
+    fetchFiles();
   };
 
-  const handleDelete = async (ecosystemFile: EcosystemFile) => {
-    setError(null);
-
-    const storagePath = extractStoragePath(ecosystemFile.public_url);
+  const handleDelete = async (file: EcosystemFile) => {
+    setDeleting(true);
+    const storagePath = extractStoragePath(file.public_url);
     if (!storagePath) {
       setError("Could not determine storage path for this file.");
+      setDeleting(false);
+      setPendingDelete(null);
       return;
     }
 
-    const { error: storageError } = await supabase.storage
-      .from("ecosystem-vault")
-      .remove([storagePath]);
-
-    if (storageError) {
-      setError(storageError.message);
-      return;
-    }
-
-    const { error: deleteError } = await supabase
-      .from("lc_files")
-      .delete()
-      .eq("id", ecosystemFile.id);
-
-    if (deleteError) {
-      setError(deleteError.message);
-      return;
-    }
-
-    setLoadingFiles(true);
-    await fetchFiles();
+    await supabase.storage.from("ecosystem-vault").remove([storagePath]);
+    await supabase.from("lc_files").delete().eq("id", file.id);
+    setDeleting(false);
+    setPendingDelete(null);
+    fetchFiles();
   };
 
-  const handleDownload = async (ecosystemFile: EcosystemFile) => {
-    setError(null);
+  const handleDownload = async (file: EcosystemFile) => {
+    const storagePath = extractStoragePath(file.public_url);
+    if (!storagePath) return;
 
-    const storagePath = extractStoragePath(ecosystemFile.public_url);
-    if (!storagePath) {
-      setError("Could not determine storage path for this file.");
-      return;
-    }
-
-    const { data, error: downloadError } = await supabase.storage
-      .from("ecosystem-vault")
-      .download(storagePath);
-
-    if (downloadError) {
-      setError(`Download failed: ${downloadError.message}`);
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(data);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = ecosystemFile.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(objectUrl);
-  };
-
-  const handleSignOut = async () => {
-    setError(null);
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) {
-      setError(signOutError.message);
+    const { data } = await supabase.storage.from("ecosystem-vault").download(storagePath);
+    if (data) {
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      a.click();
     }
   };
 
   const filteredFiles = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    if (!normalizedSearch) {
-      return files;
-    }
-
-    return files.filter((ecosystemFile) => {
-      const fileName = ecosystemFile.name.toLowerCase();
-      const extension = getFileExtension(ecosystemFile.name).toLowerCase();
-      return fileName.includes(normalizedSearch) || extension.includes(normalizedSearch);
-    });
+    return files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [files, searchTerm]);
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-100 to-slate-200 text-slate-900">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-16 -top-16 h-56 w-56 rounded-full bg-blue-200 blur-3xl" />
-        <div className="absolute right-0 top-20 h-64 w-64 rounded-full bg-indigo-100 blur-3xl" />
-      </div>
-      <nav className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white shadow-sm">
-              LC
+    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 font-sans">
+      {/* Header */}
+      <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center border border-slate-100 shadow-sm">
+               <img src="/logo.png" alt="Lanet Computers" className="h-9 w-9 object-contain" />
             </div>
             <div>
-            <h1 className="text-lg font-bold text-slate-900">Lanet Computers Eco-System</h1>
-            <p className="text-xs text-slate-500">
-              Signed in as <span className="font-semibold text-slate-700">{session.user.email}</span>
-            </p>
+              <h1 className="text-xl font-black tracking-tight text-slate-900">LANET COMPUTERS</h1>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-blue-600 font-bold">Eco-System Vault</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
+
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex flex-col items-end">
+              <span className="text-sm font-bold text-slate-700">{session.user.email}</span>
+              <div className="flex items-center gap-1.5">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] text-slate-500 font-bold uppercase">Terminal Active</span>
+              </div>
+            </div>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="group flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all font-bold text-xs"
+            >
+              <LogOut className="h-4 w-4" />
+              EXIT
+            </button>
+          </div>
         </div>
       </nav>
 
-      <main className="relative mx-auto max-w-6xl space-y-6 px-6 py-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
-              <Upload className="h-4 w-4" />
-              {uploading ? "Uploading..." : "Upload file"}
-              <input
-                type="file"
-                onChange={handleUpload}
-                disabled={uploading}
-                className="hidden"
-              />
-            </label>
+      <main className="mx-auto max-w-7xl p-6 lg:p-10 space-y-8">
+        
+        {/* Top Control Bar */}
+        <section className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            {/* White Search Bar */}
             <div className="relative w-full md:max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-500" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by file name or type..."
-                className="w-full rounded-lg border border-slate-300 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-900 outline-none ring-blue-100 transition focus:border-blue-400 focus:bg-white focus:ring-2"
-              />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                    type="text"
+                    placeholder="Search file repository..."
+                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-2xl py-3.5 pl-12 pr-4 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all placeholder:text-slate-400 text-sm shadow-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
-          </div>
+            
+            <label className="flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 active:scale-95">
+                {uploading ? <Loader className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploading ? "Uploading..." : "Upload New File"}
+                <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
+            </label>
         </section>
 
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {error}
           </div>
         )}
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/60">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Recent files</h2>
-              <p className="text-xs text-slate-500">Central vault feed</p>
+        {/* Stats Grid */}
+        <section className="grid gap-6 md:grid-cols-3">
+          {[
+            { label: "Total Files", val: files.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
+            { label: "Storage Capacity", val: formatFileSize(files.reduce((a, b) => a + b.file_size, 0)), icon: HardDrive, color: "text-indigo-600", bg: "bg-indigo-50" },
+            { label: "Your Uploads", val: files.filter(f => f.owner_id === session.user.id).length, icon: User, color: "text-emerald-600", bg: "bg-emerald-50" }
+          ].map((stat, i) => (
+            <div key={i} className="bg-white border border-slate-200/60 p-6 rounded-[24px] shadow-sm flex items-center justify-between group hover:border-blue-200 transition-colors">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
+                <p className="text-2xl font-black text-slate-900">{stat.val}</p>
+              </div>
+              <div className={`${stat.bg} p-3 rounded-2xl`}>
+                <stat.icon className={`h-6 w-6 ${stat.color}`} />
+              </div>
             </div>
-            <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              {filteredFiles.length} shown
+          ))}
+        </section>
+
+        {/* File Browser */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-3">
+              <span className="h-8 w-1 bg-blue-600 rounded-full" />
+              Recent Vault Objects
+            </h2>
+            <span className="bg-slate-200/50 text-slate-500 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter">
+              {filteredFiles.length} Results
             </span>
           </div>
+
           {loadingFiles ? (
-            <div className="flex items-center gap-2 text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading files...
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map(i => <div key={i} className="h-72 bg-white border border-slate-200 animate-pulse rounded-[24px]" />)}
             </div>
-          ) : filteredFiles.length === 0 ? (
-            <p className="text-slate-500">
-              {files.length === 0 ? "No files uploaded yet." : "No files match your search."}
-            </p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredFiles.map((ecosystemFile) => {
-                const canDelete = ecosystemFile.owner_id === session.user.id;
-                return (
-                  <article
-                    key={ecosystemFile.id}
-                    className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-100/70"
-                  >
-                    <div className="mb-3 h-28 w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100/80 flex items-center justify-center">
-                      {isImageFile(ecosystemFile.name) ? (
-                        <img
-                          src={ecosystemFile.public_url}
-                          alt={ecosystemFile.name}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span className="text-sm font-semibold tracking-wide text-slate-500">
-                          {getFileExtension(ecosystemFile.name)}
-                        </span>
-                      )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredFiles.map((file) => (
+                <div key={file.id} className="group bg-white border border-slate-200 rounded-[28px] overflow-hidden hover:shadow-2xl hover:shadow-slate-200 transition-all duration-300 flex flex-col">
+                  {/* Thumbnail */}
+                  <div className="aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center border-b border-slate-100">
+                    {isImageFile(file.name) ? (
+                      <img src={file.public_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center">
+                            <FileCode className="h-8 w-8 text-slate-400" />
+                        </div>
+                        <span className="text-[10px] font-black text-blue-600 tracking-widest">{getFileExtension(file.name)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="p-5">
+                    <h3 className="font-bold text-slate-900 truncate text-sm mb-1 group-hover:text-blue-600 transition-colors">{file.name}</h3>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-5">
+                        <span>{formatFileSize(file.file_size)}</span>
+                        <span>{new Date(file.created_at).toLocaleDateString()}</span>
                     </div>
-                    <p className="truncate text-sm font-semibold text-slate-900">{ecosystemFile.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {formatFileSize(ecosystemFile.file_size)} •{" "}
-                      {new Date(ecosystemFile.created_at).toLocaleString()}
-                    </p>
-                    <div className="mt-4 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void handleDownload(ecosystemFile)}
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleDownload(file)}
+                        className="flex-1 bg-slate-900 hover:bg-blue-600 text-white p-3 rounded-xl transition-all flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest shadow-md active:scale-95"
                       >
-                        <Download className="h-4 w-4" />
+                        <Download className="h-3.5 w-3.5" />
                         Download
                       </button>
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => void handleDelete(ecosystemFile)}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                      {file.owner_id === session.user.id && (
+                        <button 
+                          onClick={() => setPendingDelete(file)}
+                          className="bg-white border border-slate-200 hover:border-red-200 hover:text-red-500 text-slate-400 p-3 rounded-xl transition-all active:scale-95"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       )}
                     </div>
-                  </article>
-                );
-              })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-        </section>
+        </div>
+
+        {pendingDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+              <h3 className="text-lg font-bold text-slate-900">Confirm deletion</h3>
+              <p className="mt-2 text-sm text-slate-600">
+                Are you sure you want to delete <span className="font-semibold">"{pendingDelete.name}"</span>?
+                This action cannot be undone.
+              </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(null)}
+                  disabled={deleting}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(pendingDelete)}
+                  disabled={deleting}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleting ? "Deleting..." : "Delete file"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
 }
+
+const Loader = ({ className }: { className?: string }) => (
+  <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+  </svg>
+);
 
 export default Home;

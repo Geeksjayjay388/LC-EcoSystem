@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+import LoadingScreen from "./components/LoadingScreen";
 import { supabase } from "./lib/supabase";
 import Home from "./pages/Home";
 import LoginPage from "./pages/LoginPage";
@@ -32,11 +33,7 @@ function App() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 text-slate-700">
-        Connecting to Lanet Computers Eco-System...
-      </div>
-    );
+    return <LoadingScreen message="Connecting to Lanet Computers Eco-System..." />;
   }
 
   return (
