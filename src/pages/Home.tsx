@@ -411,7 +411,6 @@ function Home({ session }: HomeProps) {
           </div>
         )}
 
-        )}
       </main>
 
       {/* Full-Screen Preview Portal */}
