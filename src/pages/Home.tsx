@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { 
@@ -34,6 +34,94 @@ type EcosystemFile = {
   file_size: number;
   created_at: string;
 };
+
+type SidebarTab = "files" | "stickers" | "students";
+type StickerType = "lipa-na-mpesa" | "send-money" | "paybill" | "pochi-la-biashara";
+
+type StickerField = {
+  key: string;
+  label: string;
+  placeholder: string;
+};
+
+type StickerTemplate = {
+  label: string;
+  templatePath: string;
+  fields: StickerField[];
+};
+
+type StickerPosition = {
+  x: number;
+  y: number;
+};
+
+type StickerFieldStyle = StickerPosition & {
+  fontSize: number;
+  maxWidthPct: number;
+  color: string;
+  fontWeight: number;
+  locked?: boolean;
+  fixedText?: string;
+};
+
+const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
+  "lipa-na-mpesa": {
+    label: "Lipa na Mpesa",
+    templatePath: "/LipaNaMpesa.jpg",
+    fields: [
+      { key: "businessNumber", label: "Business Number", placeholder: "123456" },
+      { key: "ownerName", label: "Owner Name", placeholder: "Business Name" },
+    ],
+  },
+  "send-money": {
+    label: "Send Money",
+    templatePath: "/LipaNaMpesa.jpg",
+    fields: [{ key: "phoneNumber", label: "Phone Number", placeholder: "07XXXXXXXX" }],
+  },
+  paybill: {
+    label: "Paybill",
+    templatePath: "/Paybill.jpg",
+    fields: [
+      { key: "paybillNumber", label: "Paybill Number", placeholder: "400200" },
+      { key: "accountNumber", label: "Account Number", placeholder: "ACC001" },
+    ],
+  },
+  "pochi-la-biashara": {
+    label: "Pochi la Biashara",
+    templatePath: "/PochiLaBiashara.jpg",
+    fields: [
+      { key: "tillNumber", label: "Till Number", placeholder: "1234567" },
+      { key: "ownerName", label: "Owner Name", placeholder: "Shop Owner" },
+    ],
+  },
+};
+
+const BUSINESS_OWNER_NAME = "LANET COMPUTERS";
+
+const STICKER_FIELD_STYLE_DEFAULTS: Record<StickerType, Record<string, StickerFieldStyle>> = {
+  "lipa-na-mpesa": {
+    businessNumber: { x: 50, y: 62, fontSize: 72, maxWidthPct: 72, color: "#111827", fontWeight: 700 },
+    ownerName: { x: 50, y: 82, fontSize: 44, maxWidthPct: 86, color: "#111827", fontWeight: 700, locked: true, fixedText: BUSINESS_OWNER_NAME },
+  },
+  "send-money": {
+    phoneNumber: { x: 50, y: 62, fontSize: 72, maxWidthPct: 72, color: "#111827", fontWeight: 700 },
+  },
+  paybill: {
+    paybillNumber: { x: 50, y: 60, fontSize: 66, maxWidthPct: 72, color: "#111827", fontWeight: 700 },
+    accountNumber: { x: 50, y: 70, fontSize: 58, maxWidthPct: 76, color: "#111827", fontWeight: 700 },
+  },
+  "pochi-la-biashara": {
+    tillNumber: { x: 50, y: 60, fontSize: 66, maxWidthPct: 72, color: "#111827", fontWeight: 700 },
+    ownerName: { x: 50, y: 82, fontSize: 44, maxWidthPct: 86, color: "#111827", fontWeight: 700, locked: true, fixedText: BUSINESS_OWNER_NAME },
+  },
+};
+
+function getStickerValuesFromTemplate(template: StickerTemplate, previousValues?: Record<string, string>) {
+  return template.fields.reduce<Record<string, string>>((acc, field) => {
+    acc[field.key] = previousValues?.[field.key] ?? "";
+    return acc;
+  }, {});
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -73,10 +161,21 @@ function Home({ session }: HomeProps) {
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<EcosystemFile | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<SidebarTab>("files");
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("home-dark-mode") === "true";
   });
+  const [stickerType, setStickerType] = useState<StickerType>("lipa-na-mpesa");
+  const [stickerValues, setStickerValues] = useState<Record<string, string>>(() =>
+    getStickerValuesFromTemplate(STICKER_TEMPLATES["lipa-na-mpesa"])
+  );
+  const [stickerFieldStyles, setStickerFieldStyles] = useState(STICKER_FIELD_STYLE_DEFAULTS);
+  const [dragFieldKey, setDragFieldKey] = useState<string | null>(null);
+  const [generatingSticker, setGeneratingSticker] = useState(false);
+  const [generatedStickerPreview, setGeneratedStickerPreview] = useState<string | null>(null);
+  const [stickerError, setStickerError] = useState<string | null>(null);
+  const stickerCanvasRef = useRef<HTMLDivElement | null>(null);
 
   const fetchFiles = async () => {
     const { data, error: fetchError } = await supabase
@@ -207,11 +306,128 @@ function Home({ session }: HomeProps) {
     return files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [files, searchTerm]);
 
+  const currentStickerTemplate = STICKER_TEMPLATES[stickerType];
+  const currentStickerStyles = stickerFieldStyles[stickerType];
+
+  const handleStickerTypeChange = (nextType: StickerType) => {
+    setStickerType(nextType);
+    setStickerValues((prev) => getStickerValuesFromTemplate(STICKER_TEMPLATES[nextType], prev));
+    setGeneratedStickerPreview(null);
+    setStickerError(null);
+  };
+
+  const handleStickerFieldValueChange = (fieldKey: string, value: string) => {
+    setStickerValues((prev) => ({ ...prev, [fieldKey]: value }));
+    setGeneratedStickerPreview(null);
+    setStickerError(null);
+  };
+
+  const updateStickerPosition = (fieldKey: string, x: number, y: number) => {
+    setStickerFieldStyles((prev) => ({
+      ...prev,
+      [stickerType]: {
+        ...prev[stickerType],
+        [fieldKey]: {
+          ...prev[stickerType][fieldKey],
+          x,
+          y,
+        },
+      },
+    }));
+    setGeneratedStickerPreview(null);
+  };
+
+  const handleStickerPointerMove = (clientX: number, clientY: number) => {
+    if (!dragFieldKey || !stickerCanvasRef.current) return;
+    if (currentStickerStyles[dragFieldKey]?.locked) return;
+    const rect = stickerCanvasRef.current.getBoundingClientRect();
+    const x = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100));
+    updateStickerPosition(dragFieldKey, x, y);
+  };
+
+  const generateStickerPreview = async () => {
+    const hasMissingValue = currentStickerTemplate.fields.some((field) => {
+      const style = currentStickerStyles[field.key];
+      if (style?.fixedText || style?.locked) return false;
+      return !(stickerValues[field.key] ?? "").trim();
+    });
+    if (hasMissingValue) {
+      setStickerError("Please fill all sticker fields before generating.");
+      return;
+    }
+
+    setGeneratingSticker(true);
+    setStickerError(null);
+
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Could not load template image."));
+        img.src = currentStickerTemplate.templatePath;
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Failed to initialize drawing canvas.");
+
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+
+      for (const field of currentStickerTemplate.fields) {
+        const style = currentStickerStyles[field.key];
+        if (!style) continue;
+        const text = (style.fixedText ?? stickerValues[field.key] ?? "").trim();
+        if (!text) continue;
+
+        const x = (style.x / 100) * canvas.width;
+        const y = (style.y / 100) * canvas.height;
+        const maxWidth = (style.maxWidthPct / 100) * canvas.width;
+        let fontSize = style.fontSize;
+
+        ctx.fillStyle = style.color;
+        ctx.font = `${style.fontWeight} ${fontSize}px Arial, sans-serif`;
+        while (ctx.measureText(text).width > maxWidth && fontSize > 14) {
+          fontSize -= 1;
+          ctx.font = `${style.fontWeight} ${fontSize}px Arial, sans-serif`;
+        }
+        ctx.fillText(text, x, y, maxWidth);
+      }
+
+      setGeneratedStickerPreview(canvas.toDataURL("image/png"));
+    } catch (previewError) {
+      const message = previewError instanceof Error ? previewError.message : "Failed to generate sticker preview.";
+      setStickerError(message);
+    } finally {
+      setGeneratingSticker(false);
+    }
+  };
+
+  const downloadGeneratedSticker = () => {
+    if (!generatedStickerPreview) return;
+    const anchor = document.createElement("a");
+    anchor.href = generatedStickerPreview;
+    anchor.download = `${stickerType}-sticker.png`;
+    anchor.click();
+  };
+
+  const resetStickerPositions = () => {
+    setStickerFieldStyles((prev) => ({
+      ...prev,
+      [stickerType]: STICKER_FIELD_STYLE_DEFAULTS[stickerType],
+    }));
+    setGeneratedStickerPreview(null);
+  };
+
   const sidebarItems = [
     { key: "files", label: "Files (Home)", icon: FolderOpen },
     { key: "stickers", label: "Stickers", icon: Tag },
     { key: "students", label: "Students Portal", icon: GraduationCap },
-  ];
+  ] as const;
 
   return (
     <div
@@ -287,11 +503,12 @@ function Home({ session }: HomeProps) {
 
             <nav className="space-y-2">
               {sidebarItems.map((item) => {
-                const isActive = item.key === "files";
+                const isActive = item.key === activeTab;
 
                 return (
                   <button
                     key={item.key}
+                    onClick={() => setActiveTab(item.key)}
                     className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
                       isActive
                         ? "bg-blue-600 text-white"
@@ -362,263 +579,353 @@ function Home({ session }: HomeProps) {
 
         <div className="min-w-0 flex-1">
           <main className="mx-auto max-w-7xl p-6 lg:p-10">
-            <header className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h1
-                  className={`text-3xl font-semibold tracking-tight ${
-                    darkMode ? "text-slate-100" : "text-slate-900"
-                  }`}
-                >
-                  Vault Dashboard
-                </h1>
-
-                <p
-                  className={`mt-2 text-sm ${
-                    darkMode ? "text-slate-400" : "text-slate-500"
-                  }`}
-                >
-                  Secure cloud infrastructure for shared environments.
+            {activeTab === "files" && (
+              <div className="space-y-8">
+                <p className={`text-sm font-semibold ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Shared files should appear here.
                 </p>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <label
-                  className={`flex h-11 cursor-pointer items-center gap-2 rounded-2xl px-5 text-sm font-medium text-white transition ${
-                    uploading
-                      ? "bg-blue-500"
-                      : "bg-blue-600 hover:bg-blue-700"
+                <section
+                  className={`flex flex-col items-center gap-4 rounded-2xl border p-3 md:flex-row ${
+                    darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
                   }`}
                 >
-                  {uploading ? (
-                    <Loader className="h-4 w-4 animate-spin" />
+                  <div className="relative flex-1">
+                    <Search
+                      className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${
+                        darkMode ? "text-slate-500" : "text-slate-400"
+                      }`}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search files..."
+                      className={`h-11 w-full rounded-xl border-none bg-transparent pl-11 pr-4 text-sm focus:ring-0 ${
+                        darkMode ? "text-slate-100 placeholder:text-slate-500" : "placeholder:text-slate-400"
+                      }`}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  <label
+                    className={`flex h-11 cursor-pointer items-center gap-2 rounded-2xl px-5 text-sm font-medium text-white transition ${
+                      uploading ? "bg-blue-500" : "bg-blue-600 hover:bg-blue-700"
+                    }`}
+                  >
+                    {uploading ? <Loader className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {uploading ? "Uploading..." : "Upload Files"}
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={handleUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                </section>
+
+                {error && (
+                  <div
+                    className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+                      darkMode ? "border-red-900 bg-red-950/30 text-red-300" : "border-red-200 bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between pt-4">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-1 rounded-full bg-blue-600" />
+                      <div>
+                        <h2 className={`text-xl font-black tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                          Recent Vault Objects
+                        </h2>
+                        <p
+                          className={`mt-0.5 text-xs font-medium uppercase tracking-widest ${
+                            darkMode ? "text-slate-500" : "text-slate-400"
+                          }`}
+                        >
+                          Central Cloud Feed
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`rounded-full border px-4 py-1.5 text-[10px] font-black uppercase tracking-widest ${
+                        darkMode ? "border-slate-800 bg-slate-900 text-slate-400" : "border-slate-200 bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {filteredFiles.length} Objects Found
+                    </span>
+                  </div>
+
+                  {loadingFiles ? (
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-72 animate-pulse rounded-[24px] border ${
+                            darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
+                          }`}
+                        />
+                      ))}
+                    </div>
                   ) : (
-                    <Upload className="h-4 w-4" />
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {filteredFiles.map((file) => (
+                        <div
+                          key={file.id}
+                          className={`group flex flex-col overflow-hidden rounded-[28px] border transition-all duration-300 ${
+                            darkMode
+                              ? "border-slate-800 bg-slate-900 hover:shadow-2xl hover:shadow-slate-950"
+                              : "border-slate-200 bg-white hover:shadow-2xl hover:shadow-slate-200"
+                          }`}
+                        >
+                          <div
+                            onClick={() => (isImageFile(file.name) || isPdfFile(file.name)) && setPreviewFile(file)}
+                            className={`relative aspect-square overflow-hidden border-b ${
+                              darkMode ? "border-slate-800 bg-slate-950" : "border-slate-100 bg-slate-50"
+                            } ${(isImageFile(file.name) || isPdfFile(file.name)) ? "cursor-pointer" : ""}`}
+                          >
+                            {isImageFile(file.name) ? (
+                              <img src={file.public_url} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                            ) : isPdfFile(file.name) ? (
+                              <div className={`relative h-full w-full overflow-hidden ${darkMode ? "bg-slate-900" : "bg-slate-100"}`}>
+                                <iframe
+                                  src={`${file.public_url}#page=1&toolbar=0&navpanes=0&scrollbar=0`}
+                                  className="h-[200%] w-[200%] origin-top-left scale-[0.5] border-none pointer-events-none"
+                                  title="PDF Preview"
+                                />
+                                <div className="absolute right-2 top-2 rounded bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-sm">
+                                  PDF
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex h-full w-full flex-col items-center justify-center gap-3">
+                                <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${darkMode ? "bg-slate-800" : "bg-slate-100"}`}>
+                                  <FileCode className={`h-8 w-8 ${darkMode ? "text-slate-500" : "text-slate-400"}`} />
+                                </div>
+                                <span className="text-[10px] font-black tracking-widest text-blue-600">{getFileExtension(file.name)}</span>
+                              </div>
+                            )}
+
+                            {(isImageFile(file.name) || isPdfFile(file.name)) && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition-opacity group-hover:opacity-100">
+                                <Eye className="h-8 w-8 text-white" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="p-5">
+                            <h3 className={`mb-1 truncate text-sm font-bold transition-colors group-hover:text-blue-600 ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                              {file.name}
+                            </h3>
+                            <div className={`mb-5 flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                              <span>{formatFileSize(file.file_size)}</span>
+                              <span>{new Date(file.created_at).toLocaleDateString()}</span>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleDownload(file)}
+                                className={`flex flex-1 items-center justify-center gap-2 rounded-xl p-3 text-[11px] font-bold uppercase tracking-widest shadow-md transition-all active:scale-95 ${
+                                  darkMode ? "bg-slate-100 text-slate-950 hover:bg-blue-600 hover:text-white" : "bg-slate-900 text-white hover:bg-blue-600"
+                                }`}
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                Download
+                              </button>
+                              {(isImageFile(file.name) || isPdfFile(file.name)) && (
+                                <button
+                                  onClick={() => setPreviewFile(file)}
+                                  className={`rounded-xl border p-3 transition-all active:scale-95 ${
+                                    darkMode
+                                      ? "border-slate-700 bg-slate-800 text-slate-400 hover:border-blue-500 hover:text-blue-500"
+                                      : "border-slate-200 bg-white text-slate-400 hover:border-blue-200 hover:text-blue-600"
+                                  }`}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                              )}
+                              {file.owner_id === session.user.id && (
+                                <button
+                                  onClick={() => setPendingDelete(file)}
+                                  className={`rounded-xl border p-3 transition-all active:scale-95 ${
+                                    darkMode
+                                      ? "border-slate-700 bg-slate-800 text-slate-400 hover:border-red-500 hover:text-red-500"
+                                      : "border-slate-200 bg-white text-slate-400 hover:border-red-200 hover:text-red-500"
+                                  }`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
-
-                  {uploading ? "Uploading..." : "Upload Files"}
-
-                  <input
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={handleUpload}
-                    disabled={uploading}
-                  />
-                </label>
-              </div>
-            </header>
-
-            <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-              <div
-                className={`rounded-2xl border p-6 ${
-                  darkMode
-                    ? "border-slate-800 bg-slate-900"
-                    : "border-slate-200 bg-white"
-                }`}
-              >
-                <p
-                  className={`text-sm ${
-                    darkMode ? "text-slate-400" : "text-slate-500"
-                  }`}
-                >
-                  Total Files
-                </p>
-
-                <h2 className="mt-3 text-3xl font-semibold">
-                  {files.length}
-                </h2>
-              </div>
-
-              <div
-                className={`rounded-2xl border p-6 ${
-                  darkMode
-                    ? "border-slate-800 bg-slate-900"
-                    : "border-slate-200 bg-white"
-                }`}
-              >
-                <p
-                  className={`text-sm ${
-                    darkMode ? "text-slate-400" : "text-slate-500"
-                  }`}
-                >
-                  Storage Used
-                </p>
-
-                <h2 className="mt-3 text-3xl font-semibold">
-                  {formatFileSize(
-                    files.reduce((acc, file) => acc + file.file_size, 0)
-                  )}
-                </h2>
-              </div>
-
-              <div
-                className={`rounded-2xl border p-6 ${
-                  darkMode
-                    ? "border-slate-800 bg-slate-900"
-                    : "border-slate-200 bg-white"
-                }`}
-              >
-                <p
-                  className={`text-sm ${
-                    darkMode ? "text-slate-400" : "text-slate-500"
-                  }`}
-                >
-                  Image Files
-                </p>
-
-                <h2 className="mt-3 text-3xl font-semibold">
-                  {files.filter((file) => isImageFile(file.name)).length}
-                </h2>
-              </div>
-
-              <div
-                className={`rounded-2xl border p-6 ${
-                  darkMode
-                    ? "border-slate-800 bg-slate-900"
-                    : "border-slate-200 bg-white"
-                }`}
-              >
-                <p
-                  className={`text-sm ${
-                    darkMode ? "text-slate-400" : "text-slate-500"
-                  }`}
-                >
-                  PDF Documents
-                </p>
-
-                <h2 className="mt-3 text-3xl font-semibold">
-                  {files.filter((file) => isPdfFile(file.name)).length}
-                </h2>
-              </div>
-            </section>
-
-            <section
-              className={`mb-8 flex items-center gap-4 rounded-2xl border p-3 ${
-                darkMode
-                  ? "border-slate-800 bg-slate-900"
-                  : "border-slate-200 bg-white"
-              }`}
-            >
-              <div className="relative flex-1">
-                <Search
-                  className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${
-                    darkMode ? "text-slate-500" : "text-slate-400"
-                  }`}
-                />
-
-                <input
-                  type="text"
-                  placeholder="Search files..."
-                  className={`h-11 w-full rounded-xl border-none bg-transparent pl-11 pr-4 text-sm focus:ring-0 ${
-                    darkMode
-                      ? "text-slate-100 placeholder:text-slate-500"
-                      : "placeholder:text-slate-400"
-                  }`}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </section>
-
-            {error && (
-              <div className={`mb-8 rounded-2xl border px-4 py-3 text-sm font-medium ${darkMode ? "border-red-900 bg-red-950/30 text-red-300" : "border-red-200 bg-red-50 text-red-700"}`}>
-                {error}
+                </div>
               </div>
             )}
 
-            <div className="space-y-6">
-              <div className="flex items-center justify-between pt-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-1 bg-blue-600 rounded-full" />
-                  <div>
-                    <h2 className={`text-xl font-black tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Recent Vault Objects</h2>
-                    <p className={`text-xs font-medium uppercase tracking-widest mt-0.5 ${darkMode ? "text-slate-500" : "text-slate-400"}`}>Central Cloud Feed</p>
-                  </div>
+            {activeTab === "stickers" && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className={`text-2xl font-semibold tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                    Sticker Generator
+                  </h1>
+                  <p className={`mt-1 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Select a sticker type, drag the fields on the template, preview, then download PNG.
+                  </p>
                 </div>
-                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${darkMode ? "bg-slate-900 text-slate-400 border-slate-800" : "bg-slate-100 text-slate-500 border-slate-200"}`}>
-                  {filteredFiles.length} Objects Found
-                </span>
-              </div>
 
-              {loadingFiles ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {[1, 2, 3, 4].map(i => <div key={i} className={`h-72 border animate-pulse rounded-[24px] ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`} />)}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredFiles.map((file) => (
-                    <div key={file.id} className={`group border rounded-[28px] overflow-hidden transition-all duration-300 flex flex-col ${darkMode ? "bg-slate-900 border-slate-800 hover:shadow-2xl hover:shadow-slate-950" : "bg-white border-slate-200 hover:shadow-2xl hover:shadow-slate-200"}`}>
-                      <div 
-                        onClick={() => (isImageFile(file.name) || isPdfFile(file.name)) && setPreviewFile(file)}
-                        className={`aspect-square relative overflow-hidden flex items-center justify-center border-b ${darkMode ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-100"} ${(isImageFile(file.name) || isPdfFile(file.name)) ? 'cursor-pointer' : ''}`}
-                      >
-                        {isImageFile(file.name) ? (
-                          <img src={file.public_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                        ) : isPdfFile(file.name) ? (
-                          <div className={`w-full h-full relative overflow-hidden ${darkMode ? "bg-slate-900" : "bg-slate-100"}`}>
-                            <iframe 
-                              src={`${file.public_url}#page=1&toolbar=0&navpanes=0&scrollbar=0`} 
-                              className="w-[200%] h-[200%] border-none origin-top-left scale-[0.5] pointer-events-none"
-                              title="PDF Preview"
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_1fr]">
+                  <section className={`rounded-2xl border p-5 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                    <div className="space-y-4">
+                      <div>
+                        <label className={`mb-1 block text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                          Sticker Type
+                        </label>
+                        <select
+                          value={stickerType}
+                          onChange={(e) => handleStickerTypeChange(e.target.value as StickerType)}
+                          className={`h-11 w-full rounded-xl border px-3 text-sm ${
+                            darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"
+                          }`}
+                        >
+                          {Object.entries(STICKER_TEMPLATES).map(([value, template]) => (
+                            <option key={value} value={value}>
+                              {template.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {currentStickerTemplate.fields
+                        .filter((field) => !currentStickerStyles[field.key]?.locked)
+                        .map((field) => (
+                          <div key={field.key}>
+                            <label className={`mb-1 block text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                              {field.label}
+                            </label>
+                            <input
+                              type="text"
+                              value={stickerValues[field.key] ?? ""}
+                              placeholder={field.placeholder}
+                              onChange={(e) => handleStickerFieldValueChange(field.key, e.target.value)}
+                              className={`h-11 w-full rounded-xl border px-3 text-sm ${
+                                darkMode
+                                  ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500"
+                                  : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                              }`}
                             />
-                            <div className="absolute top-2 right-2 rounded bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-sm">
-                              PDF
-                            </div>
                           </div>
-                        ) : (
-                          <div className="flex flex-col items-center gap-3">
-                            <div className={`h-16 w-16 rounded-2xl flex items-center justify-center ${darkMode ? "bg-slate-800" : "bg-slate-100"}`}>
-                                <FileCode className={`h-8 w-8 ${darkMode ? "text-slate-500" : "text-slate-400"}`} />
-                            </div>
-                            <span className="text-[10px] font-black text-blue-600 tracking-widest">{getFileExtension(file.name)}</span>
-                          </div>
-                        )}
-                        
-                        {(isImageFile(file.name) || isPdfFile(file.name)) && (
-                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Eye className="h-8 w-8 text-white" />
-                          </div>
-                        )}
+                        ))}
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => void generateStickerPreview()}
+                          disabled={generatingSticker}
+                          className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {generatingSticker ? "Generating..." : "Generate Preview"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={downloadGeneratedSticker}
+                          disabled={!generatedStickerPreview}
+                          className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                            generatedStickerPreview
+                              ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                              : darkMode
+                                ? "bg-slate-800 text-slate-500"
+                                : "bg-slate-200 text-slate-500"
+                          }`}
+                        >
+                          Download PNG
+                        </button>
                       </div>
 
-                      <div className="p-5">
-                        <h3 className={`font-bold truncate text-sm mb-1 group-hover:text-blue-600 transition-colors ${darkMode ? "text-slate-100" : "text-slate-900"}`}>{file.name}</h3>
-                        <div className={`flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter mb-5 ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
-                            <span>{formatFileSize(file.file_size)}</span>
-                            <span>{new Date(file.created_at).toLocaleDateString()}</span>
-                        </div>
-                        
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => handleDownload(file)}
-                            className={`flex-1 p-3 rounded-xl transition-all flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest shadow-md active:scale-95 ${darkMode ? "bg-slate-100 text-slate-950 hover:bg-blue-600 hover:text-white" : "bg-slate-900 text-white hover:bg-blue-600"}`}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            Download
-                          </button>
-                          {(isImageFile(file.name) || isPdfFile(file.name)) && (
-                            <button 
-                              onClick={() => setPreviewFile(file)}
-                              className={`p-3 rounded-xl transition-all active:scale-95 border ${darkMode ? "bg-slate-800 border-slate-700 text-slate-400 hover:border-blue-500 hover:text-blue-500" : "bg-white border-slate-200 text-slate-400 hover:border-blue-200 hover:text-blue-600"}`}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                          )}
-                          {file.owner_id === session.user.id && (
-                            <button 
-                              onClick={() => setPendingDelete(file)}
-                              className={`p-3 rounded-xl transition-all active:scale-95 border ${darkMode ? "bg-slate-800 border-slate-700 text-slate-400 hover:border-red-500 hover:text-red-500" : "bg-white border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500"}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={resetStickerPositions}
+                        className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                          darkMode ? "border-slate-700 text-slate-200 hover:bg-slate-800" : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        Reset Field Positions
+                      </button>
+
+                      <p className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-500"}`}>
+                        To fine-tune number mapping and permanent owner font, edit <span className="font-semibold">STICKER_FIELD_STYLE_DEFAULTS</span> near the top of this file.
+                      </p>
                     </div>
-                  ))}
+                  </section>
+
+                  <section className="space-y-4">
+                    <div
+                      ref={stickerCanvasRef}
+                      onMouseMove={(e) => handleStickerPointerMove(e.clientX, e.clientY)}
+                      onMouseUp={() => setDragFieldKey(null)}
+                      onMouseLeave={() => setDragFieldKey(null)}
+                      className={`relative overflow-hidden rounded-2xl border ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}
+                    >
+                      <img src={currentStickerTemplate.templatePath} alt="Sticker template" className="w-full select-none" draggable={false} />
+                      {currentStickerTemplate.fields.map((field) => {
+                        const style = currentStickerStyles[field.key];
+                        if (!style) return null;
+                        return (
+                          <div
+                            key={field.key}
+                            onMouseDown={() => !style.locked && setDragFieldKey(field.key)}
+                            style={{
+                              left: `${style.x}%`,
+                              top: `${style.y}%`,
+                              color: style.color,
+                              fontSize: `${Math.max(16, style.fontSize * 0.45)}px`,
+                            }}
+                            className={`absolute -translate-x-1/2 -translate-y-1/2 rounded bg-black/30 px-2 py-1 text-center font-bold text-white shadow-lg select-none ${
+                              style.locked ? "cursor-default" : "cursor-move"
+                            }`}
+                          >
+                            {style.fixedText || stickerValues[field.key] || field.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {stickerError && (
+                      <div
+                        className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+                          darkMode ? "border-red-900 bg-red-950/30 text-red-300" : "border-red-200 bg-red-50 text-red-700"
+                        }`}
+                      >
+                        {stickerError}
+                      </div>
+                    )}
+
+                    {generatedStickerPreview && (
+                      <div className={`rounded-2xl border p-4 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                        <p className={`mb-3 text-sm font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>Generated Preview</p>
+                        <img src={generatedStickerPreview} alt="Generated sticker preview" className="w-full rounded-xl border border-slate-200" />
+                      </div>
+                    )}
+                  </section>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {activeTab === "students" && (
+              <div className={`rounded-2xl border p-6 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                <h1 className={`text-2xl font-semibold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Students Portal</h1>
+                <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Students portal content will appear here.
+                </p>
+              </div>
+            )}
           </main>
         </div>
       </div>
