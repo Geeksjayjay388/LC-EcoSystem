@@ -1,109 +1,365 @@
 <p align="center">
-  <img src="public/logo.png" alt="Lanet Computers Logo" width="200"/>
+  <img src="public/logo.png" alt="Lanet Computers Logo" width="180"/>
 </p>
 
-<h1 align="center">🛰️ LANET COMPUTERS ECO‑SYSTEM</h1>
+<h1 align="center">🛰️ LANET COMPUTERS ECO-SYSTEM</h1>
 
-**A Private Cloud File‑Sharing Platform for Cyber‑Cafe Environments**
+<p align="center">
+  <strong>A Modern Private Cloud Infrastructure for Cyber Cafés, Computer Labs, and Shared Workspaces</strong>
+</p>
 
----
-
-## 📢 Problem Statement
-
-In many cyber‑cafés and shared‑computer labs, users still rely on **physical flash drives** to transfer files between workstations. This approach is:
-- **Time‑consuming** – users must physically walk between terminals.
-- **Risky** – drives can be lost, infected, or contain sensitive data.
-- **Inconvenient** – limits collaboration and instant access.
-
-**LC‑Ecosystem** was created to eliminate these pain points by providing a **fast, secure, and cloud‑native** solution that works seamlessly across all machines in a network, allowing users to post, retrieve, and manage files instantly.
+<p align="center">
+  Built with React, TypeScript, Supabase, and Vercel
+</p>
 
 ---
 
-## 🚀 Core Features
+# 📖 Overview
 
-- **Secure Authentication** – Terminal-node authorization powered by Supabase.
-- **Interactive Dashboard** – Monitor storage utilization and personal contributions in real-time.
-- **Instant Previews** – View PDFs and images directly in the browser with our built-in previewer.
-- **Cloud Posting** – Upload images, PDFs, docs, etc., to a shared vault instantly.
-- **Centralized Feed** – A sleek, minimalist browser for all vault objects.
-- **Persistent Storage** – Hosted on Vercel with Supabase PostgreSQL; data never vanishes when servers sleep.
-- **Cross-Device Access** – Access your private vault from any terminal in the eco-system.
-- **Premium UI/UX** – Interactive dot-grid backgrounds and responsive, modern designs.
+LC-Ecosystem is a cloud-native file-sharing and workstation collaboration platform designed for cyber cafés, computer labs, training institutes, and shared computing environments.
+
+The platform eliminates the traditional dependency on USB flash drives by providing a secure, centralized, and accessible digital ecosystem where users can instantly upload, retrieve, preview, and manage files across multiple terminals.
+
+Designed with scalability, security, and usability in mind, LC-Ecosystem modernizes shared-computer environments through seamless cloud integration and a premium user experience.
 
 ---
 
-## 🛠️ Tech Stack
+# 🌍 Problem Statement
+
+In many cyber cafés and institutional computer labs, file transfer still heavily depends on physical flash drives.
+
+This traditional workflow introduces several challenges:
+
+- Slow and inconvenient file movement between terminals
+- High risk of malware and virus transmission
+- Lost or damaged flash drives
+- Lack of centralized file accessibility
+- Poor collaboration between users
+- Security and privacy concerns
+
+LC-Ecosystem was developed to solve these problems by creating a lightweight private-cloud ecosystem optimized for local computer environments.
+
+---
+
+# 🚀 Core Features
+
+## 🔐 Secure Authentication
+- Terminal and user authentication powered by Supabase Auth
+- Protected cloud access
+- Session persistence and secure identity management
+
+---
+
+## ☁️ Cloud File Uploads
+- Upload PDFs, images, documents, and media files
+- Persistent cloud storage
+- Instant file availability across all terminals
+
+---
+
+## 🖼️ Built-in File Preview System
+- Preview images directly in the browser
+- Integrated PDF viewer
+- Fast content accessibility without downloads
+
+---
+
+## 📊 Interactive Dashboard
+- Real-time storage insights
+- User contribution tracking
+- Minimalist and responsive analytics UI
+
+---
+
+## 🌐 Cross-Device Accessibility
+- Access uploaded content from any connected workstation
+- Optimized for cyber-café and LAN-style workflows
+
+---
+
+## 🎨 Premium UI/UX
+- Modern responsive design
+- Interactive dot-grid visual system
+- Smooth animations and transitions
+- Mobile-friendly layouts
+
+---
+
+## ⚡ Persistent Infrastructure
+- Hosted on Vercel
+- PostgreSQL-powered persistence via Supabase
+- Files remain accessible without local server dependency
+
+---
+
+# 🧠 System Architecture
+
+LC-Ecosystem follows a modern cloud-native architecture:
+
+```text
+Client (React + TypeScript)
+        ↓
+Supabase Authentication
+        ↓
+PostgreSQL Database
+        ↓
+Supabase Cloud Storage
+        ↓
+Vercel Deployment Infrastructure
+```
+
+### Architecture Highlights
+- Frontend served through Vercel CDN
+- Cloud storage managed with Supabase Storage
+- Metadata persistence handled by PostgreSQL
+- Secure access policies using Row-Level Security (RLS)
+- Fully serverless deployment workflow
+
+---
+
+# 🛠️ Tech Stack
 
 | Category | Technology |
 |----------|------------|
-| **IDE** | Antigravity |
-| **Framework** | Vite + React (TSX) |
-| **Language** | TypeScript |
-| **Auth & DB** | Supabase (Auth, PostgreSQL, Storage) |
-| **Styling** | Tailwind CSS |
-| **Hosting** | Vercel |
+| Frontend | React + Vite |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Authentication | Supabase Auth |
+| Database | PostgreSQL |
+| Storage | Supabase Storage |
+| Hosting | Vercel |
+| State Management | React Hooks |
+| Version Control | Git + GitHub |
 
 ---
 
-## 📦 Setup & Installation
+# 📸 Screenshots
+
+> Add screenshots of:
+- Login page
+- Dashboard
+- Upload interface
+- File preview system
+- Mobile responsiveness
+
+Example:
+
+```md
+![Dashboard Screenshot](public/screenshots/dashboard.png)
+```
+
+---
+
+# ⚙️ Installation & Setup
+
+## 1️⃣ Clone Repository
 
 ```bash
-# Clone the repository
 git clone https://github.com/geeksjayjay388/lc-ecosystem.git
+
 cd lc-ecosystem
+```
 
-# Install dependencies
+---
+
+## 2️⃣ Install Dependencies
+
+```bash
 npm install
+```
 
-# Install Tailwind‑Vite plugin (required for styling)
+---
+
+## 3️⃣ Install Tailwind Plugin
+
+```bash
 npm install @tailwindcss/vite
 ```
 
-### Environment Variables
-Create a `.env` file at the project root (or copy from `.env.example`) with the following keys:
+---
 
-```dotenv
+# 🔑 Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
 VITE_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```
-> **Note:** The variables must be prefixed with `VITE_` so Vite can expose them to the client.
 
-### Database & Storage
-1. Open the Supabase dashboard → **SQL editor**.
-2. Run the contents of `src/lib/supabase.sql` to create:
-   - `ecosystem‑vault` storage bucket
-   - `lc_files` table
-   - Row‑level security policies
-3. Ensure the bucket is **public** for downloading files.
+> ⚠️ Environment variables must begin with `VITE_` to be exposed by Vite.
 
 ---
 
-## ▶️ Development
+# 🗄️ Database & Storage Configuration
+
+Open your Supabase dashboard and navigate to:
+
+```text
+SQL Editor → Run SQL Script
+```
+
+Execute the SQL setup file located at:
+
+```text
+src/lib/supabase.sql
+```
+
+This script creates:
+
+- `ecosystem-vault` storage bucket
+- `lc_files` database table
+- Row-Level Security policies
+- File access permissions
+
+Ensure the storage bucket is configured correctly for your access requirements.
+
+---
+
+# ▶️ Run Development Server
 
 ```bash
 npm run dev
 ```
-Open <http://localhost:5173> in your browser. The app will hot‑reload on changes.
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+The application supports hot-reloading during development.
 
 ---
 
+# 📦 Production Build
+
+```bash
+npm run build
+```
+
+Preview production build locally:
+
+```bash
+npm run preview
+```
 
 ---
 
-## 🤝 Contributing
+# 🔒 Security Features
 
-Contributions are welcome! Please:
-1. Fork the repo.
-2. Create a feature branch (`git checkout -b feature/awesome‑feature`).
-3. Ensure the app runs locally and passes TypeScript checks.
-4. Open a Pull Request describing the change.
-
----
-
-## 📄 License
-
-Distributed under the **MIT License**. See `LICENSE` for more information.
+- Supabase Authentication
+- Secure API environment variables
+- Row-Level Security (RLS)
+- Protected file access policies
+- Persistent session management
 
 ---
 
-*Developed by Engineer Jacob-Sihul.*
+# 🌟 Real-World Use Cases
+
+LC-Ecosystem can be deployed in:
+
+- Cyber cafés
+- Computer training institutes
+- Shared office environments
+- Libraries
+- School computer labs
+- University workstations
+- Community digital centers
+
+---
+
+# 💡 Future Improvements
+
+Planned upgrades include:
+
+- 🔄 Real-time synchronization
+- 🖨️ Printing management system
+- 💳 M-Pesa integration
+- 📡 LAN-based local sync
+- 🤖 AI-powered file categorization
+- 📈 Advanced analytics dashboard
+- 🖥️ Desktop companion application
+- 👥 Multi-role administration system
+
+---
+
+# 📚 What I Learned
+
+This project strengthened my understanding of:
+
+- Cloud-native application development
+- Authentication systems
+- Database architecture
+- File storage infrastructure
+- Frontend system design
+- TypeScript development
+- Responsive UI engineering
+- Production deployment workflows
+
+---
+
+# 🤝 Contributing
+
+Contributions are welcome.
+
+## Contribution Workflow
+
+```bash
+# Fork repository
+# Create feature branch
+git checkout -b feature/amazing-feature
+
+# Commit changes
+git commit -m "Add amazing feature"
+
+# Push changes
+git push origin feature/amazing-feature
+```
+
+Open a Pull Request describing your changes.
+
+---
+
+# 📄 License
+
+Distributed under the MIT License.
+
+See:
+
+```text
+LICENSE
+```
+
+for more information.
+
+---
+
+# 👨‍💻 Developer
+
+### Engineer Jacob Sihul
+
+Passionate about:
+- Full-stack engineering
+- Cloud systems
+- AI integration
+- Scalable digital ecosystems
+- Solving real-world African technology problems
+
+---
+
+# ⭐ Support The Project
+
+If you found this project useful:
+
+- Star the repository
+- Share feedback
+- Contribute improvements
+- Connect and collaborate
+
+---
+
+<p align="center">
+  <strong>Empowering Shared Computing Through Modern Cloud Infrastructure</strong>
+</p>
