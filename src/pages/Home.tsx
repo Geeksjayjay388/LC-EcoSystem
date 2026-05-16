@@ -8,12 +8,17 @@ import {
   Trash2, 
   Upload, 
   FileText, 
-  HardDrive, 
-  User,
   FileCode,
   Eye,
   X,
-  CheckCircle2
+  CheckCircle2,
+  FolderOpen,
+  Tag,
+  GraduationCap,
+  ChevronLeft,
+  ChevronRight,
+  Moon,
+  Sun
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -67,6 +72,11 @@ function Home({ session }: HomeProps) {
   const [deleting, setDeleting] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<EcosystemFile | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("home-dark-mode") === "true";
+  });
 
   const fetchFiles = async () => {
     const { data, error: fetchError } = await supabase
@@ -105,6 +115,11 @@ function Home({ session }: HomeProps) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+    localStorage.setItem("home-dark-mode", darkMode ? "true" : "false");
+  }, [darkMode]);
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
@@ -192,90 +207,149 @@ function Home({ session }: HomeProps) {
     return files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [files, searchTerm]);
 
+  const sidebarItems = [
+    { key: "files", label: "Files (Home)", icon: FolderOpen },
+    { key: "stickers", label: "Stickers", icon: Tag },
+    { key: "students", label: "Students Portal", icon: GraduationCap },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans relative">
-      {/* Subtle Background Glow */}
+    <div
+      className={`min-h-screen font-sans relative ${
+        darkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"
+      }`}
+    >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-1/4 -top-1/4 h-1/2 w-1/2 rounded-full bg-blue-50/50 blur-[120px]" />
+        <div
+          className={`absolute -left-1/4 -top-1/4 h-1/2 w-1/2 rounded-full blur-[120px] ${
+            darkMode ? "bg-blue-900/20" : "bg-blue-50/50"
+          }`}
+        />
       </div>
 
-      {/* Header */}
-      <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center border border-slate-100 shadow-sm">
-               <img src="/logo.png" alt="Lanet Computers" className="h-9 w-9 object-contain" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tight text-slate-900">LANET COMPUTERS</h1>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-blue-600 font-bold">Eco-System Vault</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <div className="hidden md:flex flex-col items-end">
-              <span className="text-sm font-bold text-slate-700">{session.user.email}</span>
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Terminal Active</span>
-              </div>
-            </div>
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="group flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all font-bold text-xs"
-            >
-              <LogOut className="h-4 w-4" />
-              EXIT
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <main className="relative z-10 mx-auto max-w-7xl p-6 lg:p-10 space-y-8">
-        
-        {/* Simplified Stats Bar */}
-        <section className="grid gap-6 sm:grid-cols-3">
-            {[
-                { label: "Vault Objects", val: files.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
-                { label: "Storage Used", val: formatFileSize(files.reduce((a, b) => a + b.file_size, 0)), icon: HardDrive, color: "text-slate-600", bg: "bg-slate-50" },
-                { label: "My Contributions", val: files.filter(f => f.owner_id === session.user.id).length, icon: User, color: "text-emerald-600", bg: "bg-emerald-50" }
-            ].map((stat, i) => (
-                <div key={i} className="group bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex items-center justify-between hover:border-blue-400/50 hover:shadow-md transition-all duration-300">
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1.5">{stat.label}</p>
-                        <p className="text-2xl font-black text-slate-900 tracking-tight">{stat.val}</p>
-                    </div>
-                    <div className={`${stat.bg} p-3 rounded-2xl group-hover:scale-110 transition-transform`}>
-                        <stat.icon className={`h-6 w-6 ${stat.color} opacity-80`} />
-                    </div>
+      <div className="relative z-10 flex min-h-screen">
+        <aside
+          className={`sticky top-0 z-30 h-screen border-r backdrop-blur-md transition-all duration-300 ${
+            darkMode ? "border-slate-800 bg-slate-900/90" : "border-slate-200 bg-white/90"
+          } ${
+            sidebarCollapsed ? "w-20" : "w-72"
+          }`}
+        >
+          <div className="flex h-full flex-col p-4">
+            <div className="mb-8 flex items-center justify-between gap-2">
+              <div className={`flex items-center gap-3 ${sidebarCollapsed ? "w-full justify-center" : ""}`}>
+                <div className={`h-11 w-11 rounded-xl shadow-sm flex items-center justify-center ${darkMode ? "border border-slate-700 bg-slate-800" : "border border-slate-100 bg-white"}`}>
+                  <img src="/logo.png" alt="Lanet Computers" className="h-8 w-8 object-contain" />
                 </div>
-            ))}
-        </section>
-
-        {/* Search & Upload Bar */}
-        <section className="flex flex-col md:flex-row gap-4 items-center bg-white p-2 rounded-[28px] border border-slate-200 shadow-sm">
-            <div className="relative flex-1 group">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                <input
-                    type="text"
-                    placeholder="Search the encrypted vault..."
-                    className="w-full bg-transparent border-none rounded-2xl py-4 pl-14 pr-6 focus:ring-0 text-sm font-medium placeholder:text-slate-400"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+                {!sidebarCollapsed && (
+                  <div>
+                    <p className={`text-sm font-black tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>LANET COMPUTERS</p>
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-blue-600 font-bold">Eco-System</p>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((prev) => !prev)}
+                className={`h-9 w-9 rounded-lg border transition-colors ${
+                  darkMode
+                    ? "border-slate-700 text-slate-300 hover:text-blue-400 hover:border-blue-500"
+                    : "border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-200"
+                } ${
+                  sidebarCollapsed ? "mx-auto mt-2" : ""
+                }`}
+              >
+                {sidebarCollapsed ? (
+                  <ChevronRight className="mx-auto h-4 w-4" />
+                ) : (
+                  <ChevronLeft className="mx-auto h-4 w-4" />
+                )}
+              </button>
             </div>
-            <label className="flex items-center gap-3 cursor-pointer bg-slate-900 hover:bg-blue-600 text-white px-10 py-4 rounded-[22px] font-bold text-sm transition-all shadow-xl shadow-slate-200 active:scale-95 whitespace-nowrap group">
+
+            <nav className="space-y-2">
+              {sidebarItems.map((item) => {
+                const isActive = item.key === "files";
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`w-full rounded-xl px-3 py-3 flex items-center gap-3 text-sm font-bold transition-colors ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
+                        : darkMode
+                          ? "text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    } ${sidebarCollapsed ? "justify-center" : ""}`}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="mt-auto pt-4">
+              <button
+                type="button"
+                onClick={() => setDarkMode((prev) => !prev)}
+                className={`mb-3 w-full rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors ${
+                  sidebarCollapsed ? "flex items-center justify-center" : "flex items-center gap-2"
+                } ${
+                  darkMode
+                    ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {!sidebarCollapsed && (darkMode ? "Light Mode" : "Dark Mode")}
+              </button>
+              {!sidebarCollapsed && (
+                <p className={`mb-2 truncate text-xs font-bold ${darkMode ? "text-slate-400" : "text-slate-500"}`}>{session.user.email}</p>
+              )}
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className={`group w-full rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors ${
+                  sidebarCollapsed ? "flex items-center justify-center" : "flex items-center gap-2"
+                } ${
+                  darkMode
+                    ? "border-slate-700 text-slate-300 hover:border-red-800 hover:bg-red-950/30 hover:text-red-400"
+                    : "border-slate-200 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                }`}
+              >
+                <LogOut className="h-4 w-4" />
+                {!sidebarCollapsed && "EXIT"}
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          <main className="mx-auto max-w-7xl p-6 lg:p-10 space-y-8">
+            <p className={`text-sm font-semibold ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Shared files should appear here.</p>
+            <section className={`flex flex-col md:flex-row gap-4 items-center p-2 rounded-[28px] border shadow-sm ${darkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"}`}>
+              <div className="relative flex-1 group">
+                <Search className={`absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 group-focus-within:text-blue-500 transition-colors ${darkMode ? "text-slate-500" : "text-slate-400"}`} />
+                <input
+                  type="text"
+                  placeholder="Search the encrypted vault..."
+                  className={`w-full bg-transparent border-none rounded-2xl py-4 pl-14 pr-6 focus:ring-0 text-sm font-medium ${darkMode ? "text-slate-100 placeholder:text-slate-500" : "placeholder:text-slate-400"}`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer bg-slate-900 hover:bg-blue-600 text-white px-10 py-4 rounded-[22px] font-bold text-sm transition-all shadow-xl shadow-slate-200 active:scale-95 whitespace-nowrap group">
                 {uploading ? <Loader className="h-4 w-4 animate-spin" /> : <Upload className="h-5 w-5 transition-transform group-hover:-translate-y-1" />}
                 {uploading ? "Uploading..." : "Add Files"}
                 <input type="file" multiple className="hidden" onChange={handleUpload} disabled={uploading} />
-            </label>
-        </section>
+              </label>
+            </section>
 
-        {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {error}
-          </div>
-        )}
+            {error && (
+              <div className={`rounded-2xl border px-4 py-3 text-sm font-medium ${darkMode ? "border-red-900 bg-red-950/30 text-red-300" : "border-red-200 bg-red-50 text-red-700"}`}>
+                {error}
+              </div>
+            )}
 
         {/* File Browser section */}
         <div className="space-y-6">
@@ -432,7 +506,9 @@ function Home({ session }: HomeProps) {
           </div>
         )}
 
-      </main>
+          </main>
+        </div>
+      </div>
 
       {/* Full-Screen Preview Portal */}
       {previewFile && (
