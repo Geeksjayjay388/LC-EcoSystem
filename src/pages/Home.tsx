@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
+import { jsPDF } from "jspdf";
 import type { Session } from "@supabase/supabase-js";
 import { 
   Download, 
@@ -73,7 +74,7 @@ const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
   "lipa-na-mpesa": {
     label: "Lipa na Mpesa",
     templatePath: "/LipaNaMpesa.jpg",
-    fields: [{ key: "tillNumber", label: "Till Number", placeholder: "1234567" }],
+    fields: [{ key: "tillNumber", label: "Till Number", placeholder: "123456" }],
   },
   paybill: {
     label: "Paybill",
@@ -100,7 +101,7 @@ const STICKER_FIELD_STYLE_DEFAULTS: Record<StickerType, Record<string, StickerFi
   },
   paybill: {
     paybillNumber: { x: 53, y: 53, fontSize: 195, maxWidthPct: 100, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 91.5, scaleY: 1.3 },
-    accountNumber: { x: 47, y: 90, fontSize: 122, maxWidthPct: 76, color: "#111827", fontWeight: 900, fontFamily: "Arial", letterSpacing: 29, scaleY: 1.25, fixedText: "SSIHOT25" },
+    accountNumber: { x: 47, y: 90, fontSize: 122, maxWidthPct: 76, color: "#111827", fontWeight: 900, fontFamily: "Arial", letterSpacing: 29, scaleY: 1.25 },
   },
   "pochi-la-biashara": {
     phoneNumber: { x: 50, y: 80.5, fontSize: 158, maxWidthPct: 99, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 5.0, scaleY: 1.30 },
@@ -458,6 +459,24 @@ function Home({ session }: HomeProps) {
     anchor.href = generatedStickerPreview;
     anchor.download = `${stickerType}-sticker.png`;
     anchor.click();
+  };
+
+  const downloadGeneratedStickerAsPDF = () => {
+    if (!generatedStickerPreview) return;
+    const img = new Image();
+    img.src = generatedStickerPreview;
+    img.onload = () => {
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      const orientation = width > height ? "l" : "p";
+      const pdf = new jsPDF({
+        orientation: orientation,
+        unit: "px",
+        format: [width, height]
+      });
+      pdf.addImage(generatedStickerPreview, "PNG", 0, 0, width, height);
+      pdf.save(`${stickerType}-sticker.pdf`);
+    };
   };
 
 
@@ -855,6 +874,12 @@ function Home({ session }: HomeProps) {
                             
                             <input
                               type="text"
+                              maxLength={
+                                field.key === "paybillNumber" ? 6 :
+                                field.key === "phoneNumber" ? 10 :
+                                field.key === "tillNumber" ? 6 :
+                                undefined
+                              }
                               value={isFixed ? style.fixedText : (stickerValues[field.key] ?? "")}
                               placeholder={field.placeholder}
                               disabled={isFixed}
@@ -877,7 +902,7 @@ function Home({ session }: HomeProps) {
                         );
                       })}
 
-                      {false && (
+                      {stickerType === "lipa-na-mpesa" && (
                         <div className={`mt-2 mb-4 rounded-2xl border ${darkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-slate-50/50"} overflow-hidden`}>
                           <button
                             type="button"
@@ -1093,29 +1118,46 @@ function Home({ session }: HomeProps) {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2">
+                      <div className="space-y-3 pt-2">
                         <button
                           type="button"
                           onClick={() => void generateStickerPreview()}
                           disabled={generatingSticker}
-                          className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                          className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 cursor-pointer"
                         >
                           {generatingSticker ? "Generating..." : "Generate Preview"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={downloadGeneratedSticker}
-                          disabled={!generatedStickerPreview}
-                          className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                            generatedStickerPreview
-                              ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                              : darkMode
-                                ? "bg-slate-800 text-slate-500"
-                                : "bg-slate-200 text-slate-500"
-                          }`}
-                        >
-                          Download PNG
-                        </button>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={downloadGeneratedSticker}
+                            disabled={!generatedStickerPreview}
+                            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer ${
+                              generatedStickerPreview
+                                ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/10"
+                                : darkMode
+                                  ? "bg-slate-800 text-slate-500"
+                                  : "bg-slate-200 text-slate-500"
+                            }`}
+                          >
+                            Download PNG
+                          </button>
+                          <button
+                            type="button"
+                            onClick={downloadGeneratedStickerAsPDF}
+                            disabled={!generatedStickerPreview}
+                            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer ${
+                              generatedStickerPreview
+                                ? "bg-rose-600 text-white hover:bg-rose-700 shadow-md shadow-rose-600/10"
+                                : darkMode
+                                  ? "bg-slate-800 text-slate-500"
+                                  : "bg-slate-200 text-slate-500"
+                            }`}
+                          >
+                            Download PDF
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </section>

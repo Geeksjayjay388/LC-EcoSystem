@@ -92,6 +92,19 @@ LC-Ecosystem was developed to solve these problems by creating a lightweight pri
 
 ---
 
+## 🏷️ Custom Sticker Generator
+- Support for three templates: **Pochi la Biashara**, **Lipa na M-Pesa (Till)**, and **Paybill (Paybill + Account)**
+- High-fidelity canvas drawing to render custom details at locked, pixel-perfect coordinates
+- Enforced strict maximum character length limits to prevent layout breaks:
+  - **Paybill Number**: 6 characters maximum
+  - **Pochi la Biashara Number**: 10 characters maximum
+  - **Till Number**: 6 characters maximum
+  - **Account Number/Name**: Unlimited (flexible references)
+- Dual export capability: high-resolution **PNG** for digital shares and pixel-precise **PDF** (powered by `jsPDF`) for instant, edge-to-edge printing
+- Sleek, input-only clean view interfaces with zero-lag instant canvas generation
+
+---
+
 # 🧠 System Architecture
 
 LC-Ecosystem follows a modern cloud-native architecture:
@@ -130,6 +143,7 @@ Vercel Deployment Infrastructure
 | Hosting | Vercel |
 | State Management | React Hooks |
 | Version Control | Git + GitHub |
+| Document Export | jsPDF |
 
 ---
 
