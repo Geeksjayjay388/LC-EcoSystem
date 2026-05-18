@@ -73,10 +73,7 @@ const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
   "lipa-na-mpesa": {
     label: "Lipa na Mpesa",
     templatePath: "/LipaNaMpesa.jpg",
-    fields: [
-      { key: "businessNumber", label: "Business Number", placeholder: "123456" },
-      { key: "ownerName", label: "Owner Name", placeholder: "Business Name" },
-    ],
+    fields: [{ key: "tillNumber", label: "Till Number", placeholder: "1234567" }],
   },
   paybill: {
     label: "Paybill",
@@ -99,8 +96,7 @@ const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
 
 const STICKER_FIELD_STYLE_DEFAULTS: Record<StickerType, Record<string, StickerFieldStyle>> = {
   "lipa-na-mpesa": {
-    businessNumber: { x: 50, y: 62, fontSize: 72, maxWidthPct: 72, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
-    ownerName: { x: 50, y: 82, fontSize: 44, maxWidthPct: 86, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
+    tillNumber: { x: 54, y: 59.5, fontSize: 147, maxWidthPct: 100, color: "#111827", fontWeight: 900, fontFamily: "Arial", letterSpacing: 89, scaleY: 1 },
   },
   paybill: {
     paybillNumber: { x: 50, y: 60, fontSize: 66, maxWidthPct: 72, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
@@ -1172,7 +1168,7 @@ function Home({ session }: HomeProps) {
                         </div>
                         <div className="text-center py-5 px-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 shadow-sm">
                           <p className="text-base font-black tracking-tight text-blue-600 dark:text-blue-400">
-                            {stickerType === "pochi-la-biashara" 
+                            {stickerType === "pochi-la-biashara" || stickerType === "lipa-na-mpesa"
                               ? "Type the number and Generate" 
                               : "Type the details and Generate"}
                           </p>
