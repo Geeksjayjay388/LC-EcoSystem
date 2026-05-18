@@ -20,8 +20,7 @@ import {
   ChevronRight,
   Moon,
   Sun,
-  Check,
-  Sliders
+  Check
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -187,9 +186,6 @@ function Home({ session }: HomeProps) {
   const [stickerValues, setStickerValues] = useState<Record<string, string>>(() =>
     getStickerValuesFromTemplate(STICKER_TEMPLATES["lipa-na-mpesa"])
   );
-  const [stickerFieldStyles, setStickerFieldStyles] = useState(STICKER_FIELD_STYLE_DEFAULTS);
-  const [tuneOpen, setTuneOpen] = useState(false);
-  const [tuneFieldKey, setTuneFieldKey] = useState<string>("");
   const [generatingSticker, setGeneratingSticker] = useState(false);
   const [generatedStickerPreview, setGeneratedStickerPreview] = useState<string | null>(null);
   const [stickerError, setStickerError] = useState<string | null>(null);
@@ -324,24 +320,7 @@ function Home({ session }: HomeProps) {
   }, [files, searchTerm]);
 
   const currentStickerTemplate = STICKER_TEMPLATES[stickerType];
-  const currentStickerStyles = useMemo(() => {
-    const rawStyles = stickerFieldStyles[stickerType] || {};
-    const styles: Record<string, StickerFieldStyle> = {};
-    currentStickerTemplate.fields.forEach((field) => {
-      styles[field.key] = rawStyles[field.key] || STICKER_FIELD_STYLE_DEFAULTS[stickerType]?.[field.key] || {
-        x: 50,
-        y: 60,
-        fontSize: 66,
-        maxWidthPct: 72,
-        color: "#111827",
-        fontWeight: 700,
-        fontFamily: "Arial",
-        letterSpacing: 0,
-        scaleY: 1
-      };
-    });
-    return styles;
-  }, [stickerFieldStyles, stickerType, currentStickerTemplate]);
+  const currentStickerStyles = STICKER_FIELD_STYLE_DEFAULTS[stickerType] || {};
 
   const handleStickerTypeChange = (nextType: StickerType) => {
     setStickerType(nextType);
@@ -354,24 +333,6 @@ function Home({ session }: HomeProps) {
     setStickerValues((prev) => ({ ...prev, [fieldKey]: value }));
     setGeneratedStickerPreview(null);
     setStickerError(null);
-  };
-
-  const updateStickerFieldStyle = <K extends keyof StickerFieldStyle>(
-    fieldKey: string,
-    property: K,
-    value: StickerFieldStyle[K]
-  ) => {
-    setStickerFieldStyles((prev) => ({
-      ...prev,
-      [stickerType]: {
-        ...prev[stickerType],
-        [fieldKey]: {
-          ...prev[stickerType][fieldKey],
-          [property]: value,
-        },
-      },
-    }));
-    setGeneratedStickerPreview(null);
   };
 
 
@@ -902,221 +863,6 @@ function Home({ session }: HomeProps) {
                         );
                       })}
 
-                      {stickerType === "lipa-na-mpesa" && (
-                        <div className={`mt-2 mb-4 rounded-2xl border ${darkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-slate-50/50"} overflow-hidden`}>
-                          <button
-                            type="button"
-                            onClick={() => setTuneOpen(!tuneOpen)}
-                            className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Sliders className="h-4 w-4 text-blue-500" />
-                              <span>Tune Field Placements & Styles</span>
-                            </div>
-                            <span className="text-xs text-slate-400">
-                              {tuneOpen ? "Hide ▴" : "Show ▾"}
-                            </span>
-                          </button>
-
-                          {tuneOpen && (
-                            <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
-                              {/* Field Selector */}
-                              <div className="space-y-1.5">
-                                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                                  Select Field to Tune
-                                </label>
-                                <select
-                                  value={tuneFieldKey || currentStickerTemplate.fields[0]?.key}
-                                  onChange={(e) => setTuneFieldKey(e.target.value)}
-                                  className={`h-9 w-full rounded-lg border px-3 text-xs ${
-                                    darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"
-                                  }`}
-                                >
-                                  {currentStickerTemplate.fields.map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              {/* Tuning Controls */}
-                              {(() => {
-                                const fieldKey = tuneFieldKey || currentStickerTemplate.fields[0]?.key;
-                                if (!fieldKey) return null;
-                                const style = currentStickerStyles[fieldKey];
-                                if (!style) return null;
-
-                                return (
-                                  <div className="space-y-3.5 pt-2">
-                                    {/* X Placement */}
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                        <span>Horizontal Center (X)</span>
-                                        <span className="text-blue-500 font-bold">{style.x}%</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="0"
-                                        max="100"
-                                        step="0.5"
-                                        value={style.x}
-                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "x", parseFloat(e.target.value))}
-                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                      />
-                                    </div>
-
-                                    {/* Y Placement */}
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                        <span>Vertical Alignment (Y)</span>
-                                        <span className="text-blue-500 font-bold">{style.y}%</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="0"
-                                        max="100"
-                                        step="0.5"
-                                        value={style.y}
-                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "y", parseFloat(e.target.value))}
-                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                      />
-                                    </div>
-
-                                    {/* Font Size */}
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                        <span>Font Size</span>
-                                        <span className="text-blue-500 font-bold">{style.fontSize}px</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="10"
-                                        max="300"
-                                        step="1"
-                                        value={style.fontSize}
-                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "fontSize", parseInt(e.target.value))}
-                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                      />
-                                    </div>
-
-                                    {/* Max Width */}
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                        <span>Max Width</span>
-                                        <span className="text-blue-500 font-bold">{style.maxWidthPct}%</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="10"
-                                        max="100"
-                                        step="1"
-                                        value={style.maxWidthPct}
-                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "maxWidthPct", parseInt(e.target.value))}
-                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                      />
-                                    </div>
-
-                                    {/* Letter Spacing */}
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                        <span>Letter & Number Spacing</span>
-                                        <span className="text-blue-500 font-bold">{(style.letterSpacing ?? 0).toFixed(1)}px</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="-10"
-                                        max="100"
-                                        step="0.5"
-                                        value={style.letterSpacing ?? 0}
-                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "letterSpacing", parseFloat(e.target.value))}
-                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                      />
-                                    </div>
-
-                                    {/* Scale Y (Vertical Stretch) */}
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                        <span>Font Height (Vertical Stretch)</span>
-                                        <span className="text-blue-500 font-bold">{(style.scaleY ?? 1).toFixed(2)}x</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="0.5"
-                                        max="2.5"
-                                        step="0.05"
-                                        value={style.scaleY ?? 1}
-                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "scaleY", parseFloat(e.target.value))}
-                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                      />
-                                    </div>
-
-                                    {/* Font Family */}
-                                    <div className="grid grid-cols-2 gap-3.5 pt-1">
-                                      <div className="space-y-1">
-                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                          Font Family
-                                        </label>
-                                        <select
-                                          value={style.fontFamily || "Arial"}
-                                          onChange={(e) => updateStickerFieldStyle(fieldKey, "fontFamily", e.target.value)}
-                                          className={`h-8 w-full rounded-lg border px-2 text-xs ${
-                                            darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"
-                                          }`}
-                                        >
-                                          <option value="Arial">Arial (Clean)</option>
-                                          <option value="Montserrat">Montserrat</option>
-                                          <option value="Outfit">Outfit</option>
-                                          <option value="Inter">Inter</option>
-                                          <option value="Roboto">Roboto</option>
-                                        </select>
-                                      </div>
-
-                                      {/* Weight selector */}
-                                      <div className="space-y-1">
-                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                          Weight
-                                        </label>
-                                        <select
-                                          value={style.fontWeight || 700}
-                                          onChange={(e) => updateStickerFieldStyle(fieldKey, "fontWeight", parseInt(e.target.value, 10))}
-                                          className={`h-8 w-full rounded-lg border px-2 text-xs ${
-                                            darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"
-                                          }`}
-                                        >
-                                          <option value={400}>Regular 400</option>
-                                          <option value={500}>Medium 500</option>
-                                          <option value={600}>SemiBold 600</option>
-                                          <option value={700}>Bold 700</option>
-                                          <option value={900}>Black 900</option>
-                                        </select>
-                                      </div>
-                                    </div>
-
-                                    {/* Reset Field styles */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setStickerFieldStyles((prev) => ({
-                                          ...prev,
-                                          [stickerType]: {
-                                            ...prev[stickerType],
-                                            [fieldKey]: STICKER_FIELD_STYLE_DEFAULTS[stickerType]?.[fieldKey] || style
-                                          }
-                                        }));
-                                        setGeneratedStickerPreview(null);
-                                      }}
-                                      className="w-full py-1.5 mt-2 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition"
-                                    >
-                                      Reset Field Position
-                                    </button>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </div>
-                      )}
 
                       <div className="space-y-3 pt-2">
                         <button
