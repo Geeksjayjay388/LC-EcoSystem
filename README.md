@@ -98,7 +98,7 @@ LC-Ecosystem was developed to solve these problems by creating a lightweight pri
 - Enforced strict maximum character length limits to prevent layout breaks:
   - **Paybill Number**: 6 characters maximum
   - **Pochi la Biashara Number**: 10 characters maximum
-  - **Till Number**: 6 characters maximum
+  - **Till Number**: 7 characters maximum
   - **Account Number/Name**: Unlimited (flexible references)
 - Dual export capability: high-resolution **PNG** for digital shares and pixel-precise **PDF** (powered by `jsPDF`) for instant, edge-to-edge printing
 - Sleek, input-only clean view interfaces with zero-lag instant canvas generation

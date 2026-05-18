@@ -73,7 +73,7 @@ const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
   "lipa-na-mpesa": {
     label: "Lipa na Mpesa",
     templatePath: "/LipaNaMpesa.jpg",
-    fields: [{ key: "tillNumber", label: "Till Number", placeholder: "123456" }],
+    fields: [{ key: "tillNumber", label: "Till Number", placeholder: "1234567" }],
   },
   paybill: {
     label: "Paybill",
@@ -838,7 +838,7 @@ function Home({ session }: HomeProps) {
                               maxLength={
                                 field.key === "paybillNumber" ? 6 :
                                 field.key === "phoneNumber" ? 10 :
-                                field.key === "tillNumber" ? 6 :
+                                field.key === "tillNumber" ? 7 :
                                 undefined
                               }
                               value={isFixed ? style.fixedText : (stickerValues[field.key] ?? "")}
