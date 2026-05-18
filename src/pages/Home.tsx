@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { 
@@ -18,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Moon,
-  Sun
+  Sun,
+  Check,
+  Sliders
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -36,7 +38,7 @@ type EcosystemFile = {
 };
 
 type SidebarTab = "files" | "stickers" | "students";
-type StickerType = "lipa-na-mpesa" | "send-money" | "paybill" | "pochi-la-biashara";
+type StickerType = "lipa-na-mpesa" | "paybill" | "pochi-la-biashara";
 
 type StickerField = {
   key: string;
@@ -62,6 +64,9 @@ type StickerFieldStyle = StickerPosition & {
   fontWeight: number;
   locked?: boolean;
   fixedText?: string;
+  fontFamily?: string;
+  letterSpacing?: number;
+  scaleY?: number;
 };
 
 const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
@@ -72,11 +77,6 @@ const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
       { key: "businessNumber", label: "Business Number", placeholder: "123456" },
       { key: "ownerName", label: "Owner Name", placeholder: "Business Name" },
     ],
-  },
-  "send-money": {
-    label: "Send Money",
-    templatePath: "/LipaNaMpesa.jpg",
-    fields: [{ key: "phoneNumber", label: "Phone Number", placeholder: "07XXXXXXXX" }],
   },
   paybill: {
     label: "Paybill",
@@ -90,29 +90,24 @@ const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
     label: "Pochi la Biashara",
     templatePath: "/PochiLaBiashara.jpg",
     fields: [
-      { key: "tillNumber", label: "Till Number", placeholder: "1234567" },
-      { key: "ownerName", label: "Owner Name", placeholder: "Shop Owner" },
+      { key: "phoneNumber", label: "Number", placeholder: "07XXXXXXXX" },
     ],
   },
 };
 
-const BUSINESS_OWNER_NAME = "LANET COMPUTERS";
+
 
 const STICKER_FIELD_STYLE_DEFAULTS: Record<StickerType, Record<string, StickerFieldStyle>> = {
   "lipa-na-mpesa": {
-    businessNumber: { x: 50, y: 62, fontSize: 72, maxWidthPct: 72, color: "#111827", fontWeight: 700 },
-    ownerName: { x: 50, y: 82, fontSize: 44, maxWidthPct: 86, color: "#111827", fontWeight: 700, locked: true, fixedText: BUSINESS_OWNER_NAME },
-  },
-  "send-money": {
-    phoneNumber: { x: 50, y: 62, fontSize: 72, maxWidthPct: 72, color: "#111827", fontWeight: 700 },
+    businessNumber: { x: 50, y: 62, fontSize: 72, maxWidthPct: 72, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
+    ownerName: { x: 50, y: 82, fontSize: 44, maxWidthPct: 86, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
   },
   paybill: {
-    paybillNumber: { x: 50, y: 60, fontSize: 66, maxWidthPct: 72, color: "#111827", fontWeight: 700 },
-    accountNumber: { x: 50, y: 70, fontSize: 58, maxWidthPct: 76, color: "#111827", fontWeight: 700 },
+    paybillNumber: { x: 50, y: 60, fontSize: 66, maxWidthPct: 72, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
+    accountNumber: { x: 50, y: 70, fontSize: 58, maxWidthPct: 76, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
   },
   "pochi-la-biashara": {
-    tillNumber: { x: 50, y: 60, fontSize: 66, maxWidthPct: 72, color: "#111827", fontWeight: 700 },
-    ownerName: { x: 50, y: 82, fontSize: 44, maxWidthPct: 86, color: "#111827", fontWeight: 700, locked: true, fixedText: BUSINESS_OWNER_NAME },
+    phoneNumber: { x: 50, y: 80.5, fontSize: 158, maxWidthPct: 99, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 5.0, scaleY: 1.30 },
   },
 };
 
@@ -121,6 +116,31 @@ function getStickerValuesFromTemplate(template: StickerTemplate, previousValues?
     acc[field.key] = previousValues?.[field.key] ?? "";
     return acc;
   }, {});
+}
+
+function formatPochiNumber(val: string): string {
+  const clean = val.replace(/\D/g, "");
+  
+  if (clean.startsWith("254")) {
+    if (clean.length <= 3) return clean;
+    if (clean.length <= 7) return `${clean.slice(0, 3)} ${clean.slice(3, 7)}`;
+    if (clean.length <= 10) return `${clean.slice(0, 3)} ${clean.slice(3, 7)} ${clean.slice(7, 10)}`;
+    return `${clean.slice(0, 3)} ${clean.slice(3, 7)} ${clean.slice(7, 10)} ${clean.slice(10, 12)}`;
+  }
+  
+  if (clean.startsWith("0")) {
+    if (clean.length <= 4) return clean;
+    if (clean.length <= 7) return `${clean.slice(0, 4)} ${clean.slice(4, 7)}`;
+    return `${clean.slice(0, 4)} ${clean.slice(4, 7)} ${clean.slice(7, 10)}`;
+  }
+  
+  if (clean.startsWith("7") || clean.startsWith("1")) {
+    if (clean.length <= 3) return clean;
+    if (clean.length <= 6) return `${clean.slice(0, 3)} ${clean.slice(3, 6)}`;
+    return `${clean.slice(0, 3)} ${clean.slice(3, 6)} ${clean.slice(6, 9)}`;
+  }
+  
+  return val;
 }
 
 function formatFileSize(bytes: number): string {
@@ -171,11 +191,11 @@ function Home({ session }: HomeProps) {
     getStickerValuesFromTemplate(STICKER_TEMPLATES["lipa-na-mpesa"])
   );
   const [stickerFieldStyles, setStickerFieldStyles] = useState(STICKER_FIELD_STYLE_DEFAULTS);
-  const [dragFieldKey, setDragFieldKey] = useState<string | null>(null);
+  const [tuneOpen, setTuneOpen] = useState(false);
+  const [tuneFieldKey, setTuneFieldKey] = useState<string>("");
   const [generatingSticker, setGeneratingSticker] = useState(false);
   const [generatedStickerPreview, setGeneratedStickerPreview] = useState<string | null>(null);
   const [stickerError, setStickerError] = useState<string | null>(null);
-  const stickerCanvasRef = useRef<HTMLDivElement | null>(null);
 
   const fetchFiles = async () => {
     const { data, error: fetchError } = await supabase
@@ -307,7 +327,24 @@ function Home({ session }: HomeProps) {
   }, [files, searchTerm]);
 
   const currentStickerTemplate = STICKER_TEMPLATES[stickerType];
-  const currentStickerStyles = stickerFieldStyles[stickerType];
+  const currentStickerStyles = useMemo(() => {
+    const rawStyles = stickerFieldStyles[stickerType] || {};
+    const styles: Record<string, StickerFieldStyle> = {};
+    currentStickerTemplate.fields.forEach((field) => {
+      styles[field.key] = rawStyles[field.key] || STICKER_FIELD_STYLE_DEFAULTS[stickerType]?.[field.key] || {
+        x: 50,
+        y: 60,
+        fontSize: 66,
+        maxWidthPct: 72,
+        color: "#111827",
+        fontWeight: 700,
+        fontFamily: "Arial",
+        letterSpacing: 0,
+        scaleY: 1
+      };
+    });
+    return styles;
+  }, [stickerFieldStyles, stickerType, currentStickerTemplate]);
 
   const handleStickerTypeChange = (nextType: StickerType) => {
     setStickerType(nextType);
@@ -322,29 +359,25 @@ function Home({ session }: HomeProps) {
     setStickerError(null);
   };
 
-  const updateStickerPosition = (fieldKey: string, x: number, y: number) => {
+  const updateStickerFieldStyle = <K extends keyof StickerFieldStyle>(
+    fieldKey: string,
+    property: K,
+    value: StickerFieldStyle[K]
+  ) => {
     setStickerFieldStyles((prev) => ({
       ...prev,
       [stickerType]: {
         ...prev[stickerType],
         [fieldKey]: {
           ...prev[stickerType][fieldKey],
-          x,
-          y,
+          [property]: value,
         },
       },
     }));
     setGeneratedStickerPreview(null);
   };
 
-  const handleStickerPointerMove = (clientX: number, clientY: number) => {
-    if (!dragFieldKey || !stickerCanvasRef.current) return;
-    if (currentStickerStyles[dragFieldKey]?.locked) return;
-    const rect = stickerCanvasRef.current.getBoundingClientRect();
-    const x = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
-    const y = Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100));
-    updateStickerPosition(dragFieldKey, x, y);
-  };
+
 
   const generateStickerPreview = async () => {
     const hasMissingValue = currentStickerTemplate.fields.some((field) => {
@@ -356,6 +389,9 @@ function Home({ session }: HomeProps) {
       setStickerError("Please fill all sticker fields before generating.");
       return;
     }
+
+    // Ensure all Google Web Fonts are fully downloaded and active before drawing to the canvas
+    await document.fonts.ready;
 
     setGeneratingSticker(true);
     setStickerError(null);
@@ -381,7 +417,10 @@ function Home({ session }: HomeProps) {
       for (const field of currentStickerTemplate.fields) {
         const style = currentStickerStyles[field.key];
         if (!style) continue;
-        const text = (style.fixedText ?? stickerValues[field.key] ?? "").trim();
+        let text = (style.fixedText ?? stickerValues[field.key] ?? "").trim();
+        if (stickerType === "pochi-la-biashara" && field.key === "phoneNumber") {
+          text = formatPochiNumber(text);
+        }
         if (!text) continue;
 
         const x = (style.x / 100) * canvas.width;
@@ -390,12 +429,22 @@ function Home({ session }: HomeProps) {
         let fontSize = style.fontSize;
 
         ctx.fillStyle = style.color;
-        ctx.font = `${style.fontWeight} ${fontSize}px Arial, sans-serif`;
+        const ctxWithLetterSpacing = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
+        if ("letterSpacing" in ctxWithLetterSpacing) {
+          ctxWithLetterSpacing.letterSpacing = `${style.letterSpacing ?? 0}px`;
+        }
+        ctx.font = `${style.fontWeight} ${fontSize}px ${style.fontFamily || "Arial"}, sans-serif`;
         while (ctx.measureText(text).width > maxWidth && fontSize > 14) {
           fontSize -= 1;
-          ctx.font = `${style.fontWeight} ${fontSize}px Arial, sans-serif`;
+          ctx.font = `${style.fontWeight} ${fontSize}px ${style.fontFamily || "Arial"}, sans-serif`;
         }
-        ctx.fillText(text, x, y, maxWidth);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(1, style.scaleY ?? 1);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, 0, 0, maxWidth);
+        ctx.restore();
       }
 
       setGeneratedStickerPreview(canvas.toDataURL("image/png"));
@@ -415,13 +464,7 @@ function Home({ session }: HomeProps) {
     anchor.click();
   };
 
-  const resetStickerPositions = () => {
-    setStickerFieldStyles((prev) => ({
-      ...prev,
-      [stickerType]: STICKER_FIELD_STYLE_DEFAULTS[stickerType],
-    }));
-    setGeneratedStickerPreview(null);
-  };
+
 
   const sidebarItems = [
     { key: "files", label: "Files (Home)", icon: FolderOpen },
@@ -803,28 +846,259 @@ function Home({ session }: HomeProps) {
                         </select>
                       </div>
 
-                      {currentStickerTemplate.fields
-                        .filter((field) => !currentStickerStyles[field.key]?.locked)
-                        .map((field) => (
-                          <div key={field.key}>
-                            <label className={`mb-1 block text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-                              {field.label}
+                      {currentStickerTemplate.fields.map((field) => {
+                        const style = currentStickerStyles[field.key];
+                        if (!style) return null;
+                        const isFixed = style.fixedText !== undefined;
+
+                        return (
+                          <div key={field.key} className="space-y-2">
+                            <label className={`block text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                              {field.label} {isFixed && <span className="text-[10px] text-slate-500 font-medium">(Fixed)</span>}
                             </label>
+                            
                             <input
                               type="text"
-                              value={stickerValues[field.key] ?? ""}
+                              value={isFixed ? style.fixedText : (stickerValues[field.key] ?? "")}
                               placeholder={field.placeholder}
-                              onChange={(e) => handleStickerFieldValueChange(field.key, e.target.value)}
-                              className={`h-11 w-full rounded-xl border px-3 text-sm ${
-                                darkMode
-                                  ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500"
-                                  : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                              disabled={isFixed}
+                              onChange={(e) => {
+                                if (!isFixed) {
+                                  handleStickerFieldValueChange(field.key, e.target.value);
+                                }
+                              }}
+                              className={`h-11 w-full rounded-xl border px-3 text-sm transition-all outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                                isFixed
+                                  ? darkMode 
+                                    ? "border-slate-800 bg-slate-900/50 text-slate-500 cursor-not-allowed" 
+                                    : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                                  : darkMode
+                                    ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500 focus:border-blue-500"
+                                    : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-600"
                               }`}
                             />
                           </div>
-                        ))}
+                        );
+                      })}
 
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {/* Tune settings collapsible drawer */}
+                      {stickerType !== "pochi-la-biashara" && (
+                        <div className={`mt-2 mb-4 rounded-2xl border ${darkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-slate-50/50"} overflow-hidden`}>
+                          <button
+                            type="button"
+                            onClick={() => setTuneOpen(!tuneOpen)}
+                            className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Sliders className="h-4 w-4 text-blue-500" />
+                              <span>Tune Field Placements & Styles</span>
+                            </div>
+                            <span className="text-xs text-slate-400">
+                              {tuneOpen ? "Hide ▴" : "Show ▾"}
+                            </span>
+                          </button>
+
+                          {tuneOpen && (
+                            <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+                              {/* Field Selector */}
+                              <div className="space-y-1.5">
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                  Select Field to Tune
+                                </label>
+                                <select
+                                  value={tuneFieldKey || currentStickerTemplate.fields[0]?.key}
+                                  onChange={(e) => setTuneFieldKey(e.target.value)}
+                                  className={`h-9 w-full rounded-lg border px-3 text-xs ${
+                                    darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"
+                                  }`}
+                                >
+                                  {currentStickerTemplate.fields.map((f) => (
+                                    <option key={f.key} value={f.key}>
+                                      {f.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Tuning Controls */}
+                              {(() => {
+                                const fieldKey = tuneFieldKey || currentStickerTemplate.fields[0]?.key;
+                                if (!fieldKey) return null;
+                                const style = currentStickerStyles[fieldKey];
+                                if (!style) return null;
+
+                                return (
+                                  <div className="space-y-3.5 pt-2">
+                                    {/* X Placement */}
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <span>Horizontal Center (X)</span>
+                                        <span className="text-blue-500 font-bold">{style.x}%</span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        step="0.5"
+                                        value={style.x}
+                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "x", parseFloat(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                      />
+                                    </div>
+
+                                    {/* Y Placement */}
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <span>Vertical Alignment (Y)</span>
+                                        <span className="text-blue-500 font-bold">{style.y}%</span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        step="0.5"
+                                        value={style.y}
+                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "y", parseFloat(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                      />
+                                    </div>
+
+                                    {/* Font Size */}
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <span>Font Size</span>
+                                        <span className="text-blue-500 font-bold">{style.fontSize}px</span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="10"
+                                        max="300"
+                                        step="1"
+                                        value={style.fontSize}
+                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "fontSize", parseInt(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                      />
+                                    </div>
+
+                                    {/* Max Width */}
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <span>Max Width</span>
+                                        <span className="text-blue-500 font-bold">{style.maxWidthPct}%</span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="10"
+                                        max="100"
+                                        step="1"
+                                        value={style.maxWidthPct}
+                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "maxWidthPct", parseInt(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                      />
+                                    </div>
+
+                                    {/* Letter Spacing */}
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <span>Letter & Number Spacing</span>
+                                        <span className="text-blue-500 font-bold">{(style.letterSpacing ?? 0).toFixed(1)}px</span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="-10"
+                                        max="100"
+                                        step="0.5"
+                                        value={style.letterSpacing ?? 0}
+                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "letterSpacing", parseFloat(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                      />
+                                    </div>
+
+                                    {/* Scale Y (Vertical Stretch) */}
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <span>Font Height (Vertical Stretch)</span>
+                                        <span className="text-blue-500 font-bold">{(style.scaleY ?? 1).toFixed(2)}x</span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="0.5"
+                                        max="2.5"
+                                        step="0.05"
+                                        value={style.scaleY ?? 1}
+                                        onChange={(e) => updateStickerFieldStyle(fieldKey, "scaleY", parseFloat(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                      />
+                                    </div>
+
+                                    {/* Font Family */}
+                                    <div className="grid grid-cols-2 gap-3.5 pt-1">
+                                      <div className="space-y-1">
+                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                          Font Family
+                                        </label>
+                                        <select
+                                          value={style.fontFamily || "Arial"}
+                                          onChange={(e) => updateStickerFieldStyle(fieldKey, "fontFamily", e.target.value)}
+                                          className={`h-8 w-full rounded-lg border px-2 text-xs ${
+                                            darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"
+                                          }`}
+                                        >
+                                          <option value="Arial">Arial (Clean)</option>
+                                          <option value="Montserrat">Montserrat</option>
+                                          <option value="Outfit">Outfit</option>
+                                          <option value="Inter">Inter</option>
+                                          <option value="Roboto">Roboto</option>
+                                        </select>
+                                      </div>
+
+                                      {/* Weight selector */}
+                                      <div className="space-y-1">
+                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                          Weight
+                                        </label>
+                                        <select
+                                          value={style.fontWeight || 700}
+                                          onChange={(e) => updateStickerFieldStyle(fieldKey, "fontWeight", parseInt(e.target.value, 10))}
+                                          className={`h-8 w-full rounded-lg border px-2 text-xs ${
+                                            darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"
+                                          }`}
+                                        >
+                                          <option value={400}>Regular 400</option>
+                                          <option value={500}>Medium 500</option>
+                                          <option value={600}>SemiBold 600</option>
+                                          <option value={700}>Bold 700</option>
+                                          <option value={900}>Black 900</option>
+                                        </select>
+                                      </div>
+                                    </div>
+
+                                    {/* Reset Field styles */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setStickerFieldStyles((prev) => ({
+                                          ...prev,
+                                          [stickerType]: {
+                                            ...prev[stickerType],
+                                            [fieldKey]: STICKER_FIELD_STYLE_DEFAULTS[stickerType]?.[fieldKey] || style
+                                          }
+                                        }));
+                                        setGeneratedStickerPreview(null);
+                                      }}
+                                      className="w-full py-1.5 mt-2 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                                    >
+                                      Reset Field Position
+                                    </button>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2">
                         <button
                           type="button"
                           onClick={() => void generateStickerPreview()}
@@ -848,54 +1122,77 @@ function Home({ session }: HomeProps) {
                           Download PNG
                         </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={resetStickerPositions}
-                        className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
-                          darkMode ? "border-slate-700 text-slate-200 hover:bg-slate-800" : "border-slate-300 text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        Reset Field Positions
-                      </button>
-
-                      <p className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-500"}`}>
-                        To fine-tune number mapping and permanent owner font, edit <span className="font-semibold">STICKER_FIELD_STYLE_DEFAULTS</span> near the top of this file.
-                      </p>
                     </div>
                   </section>
 
                   <section className="space-y-4">
-                    <div
-                      ref={stickerCanvasRef}
-                      onMouseMove={(e) => handleStickerPointerMove(e.clientX, e.clientY)}
-                      onMouseUp={() => setDragFieldKey(null)}
-                      onMouseLeave={() => setDragFieldKey(null)}
-                      className={`relative overflow-hidden rounded-2xl border ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}
-                    >
-                      <img src={currentStickerTemplate.templatePath} alt="Sticker template" className="w-full select-none" draggable={false} />
-                      {currentStickerTemplate.fields.map((field) => {
-                        const style = currentStickerStyles[field.key];
-                        if (!style) return null;
-                        return (
-                          <div
-                            key={field.key}
-                            onMouseDown={() => !style.locked && setDragFieldKey(field.key)}
-                            style={{
-                              left: `${style.x}%`,
-                              top: `${style.y}%`,
-                              color: style.color,
-                              fontSize: `${Math.max(16, style.fontSize * 0.45)}px`,
-                            }}
-                            className={`absolute -translate-x-1/2 -translate-y-1/2 rounded bg-black/30 px-2 py-1 text-center font-bold text-white shadow-lg select-none ${
-                              style.locked ? "cursor-default" : "cursor-move"
-                            }`}
-                          >
-                            {style.fixedText || stickerValues[field.key] || field.label}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {!generatedStickerPreview ? (
+                      <div className="space-y-4">
+                        <div
+                          style={{ containerType: "inline-size" }}
+                          className={`relative overflow-hidden rounded-2xl border ${darkMode ? "border-slate-800 bg-slate-900 shadow-slate-950/40" : "border-slate-200 bg-white shadow-sm"}`}
+                        >
+                          <img 
+                            src={currentStickerTemplate.templatePath} 
+                            alt="Blank Sticker Template" 
+                            className="w-full select-none" 
+                            draggable={false} 
+                          />
+                          {currentStickerTemplate.fields.map((field) => {
+                            if (stickerType === "pochi-la-biashara") return null;
+                            const style = currentStickerStyles[field.key];
+                            if (!style) return null;
+                            let text = (style.fixedText !== undefined ? style.fixedText : (stickerValues[field.key] ?? "")).trim();
+                            text = text || field.label;
+
+                            return (
+                              <div
+                                key={field.key}
+                                style={{
+                                  left: `${style.x}%`,
+                                  top: `${style.y}%`,
+                                  color: style.color,
+                                  fontSize: `calc(${style.fontSize / 12.8}cqw)`,
+                                  letterSpacing: `calc(${(style.letterSpacing ?? 0) / 12.8}cqw)`,
+                                  fontWeight: style.fontWeight,
+                                  fontFamily: `${style.fontFamily || "Arial"}, sans-serif`,
+                                  maxWidth: `${style.maxWidthPct}%`,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  lineHeight: 1.1,
+                                  transform: `translate(-50%, -50%) scaleY(${style.scaleY ?? 1})`,
+                                }}
+                                className="absolute -translate-x-1/2 -translate-y-1/2 text-center select-none pointer-events-none transition-all duration-75"
+                              >
+                                {text}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="text-center py-5 px-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 shadow-sm">
+                          <p className="text-base font-black tracking-tight text-blue-600 dark:text-blue-400">
+                            {stickerType === "pochi-la-biashara" 
+                              ? "Type the number and Generate" 
+                              : "Type the details and Generate"}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl bg-white dark:bg-slate-900">
+                        <img 
+                          src={generatedStickerPreview} 
+                          alt="Customized M-Pesa Sticker Preview" 
+                          className="w-full h-auto select-none rounded-2xl animate-in fade-in duration-300" 
+                          draggable={false} 
+                        />
+                        {/* Premium Floating customized badge */}
+                        <div className="absolute top-4 right-4 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 border border-emerald-400/30 animate-pulse">
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Customized Preview Ready</span>
+                        </div>
+                      </div>
+                    )}
 
                     {stickerError && (
                       <div
@@ -904,13 +1201,6 @@ function Home({ session }: HomeProps) {
                         }`}
                       >
                         {stickerError}
-                      </div>
-                    )}
-
-                    {generatedStickerPreview && (
-                      <div className={`rounded-2xl border p-4 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
-                        <p className={`mb-3 text-sm font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>Generated Preview</p>
-                        <img src={generatedStickerPreview} alt="Generated sticker preview" className="w-full rounded-xl border border-slate-200" />
                       </div>
                     )}
                   </section>
