@@ -99,8 +99,8 @@ const STICKER_FIELD_STYLE_DEFAULTS: Record<StickerType, Record<string, StickerFi
     tillNumber: { x: 54, y: 59.5, fontSize: 147, maxWidthPct: 100, color: "#111827", fontWeight: 900, fontFamily: "Arial", letterSpacing: 89, scaleY: 1 },
   },
   paybill: {
-    paybillNumber: { x: 50, y: 60, fontSize: 66, maxWidthPct: 72, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
-    accountNumber: { x: 50, y: 70, fontSize: 58, maxWidthPct: 76, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 0, scaleY: 1 },
+    paybillNumber: { x: 53, y: 53, fontSize: 195, maxWidthPct: 100, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 91.5, scaleY: 1.3 },
+    accountNumber: { x: 47, y: 90, fontSize: 122, maxWidthPct: 76, color: "#111827", fontWeight: 900, fontFamily: "Arial", letterSpacing: 29, scaleY: 1.25, fixedText: "SSIHOT25" },
   },
   "pochi-la-biashara": {
     phoneNumber: { x: 50, y: 80.5, fontSize: 158, maxWidthPct: 99, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 5.0, scaleY: 1.30 },
@@ -877,8 +877,7 @@ function Home({ session }: HomeProps) {
                         );
                       })}
 
-                      {/* Tune settings collapsible drawer */}
-                      {stickerType !== "pochi-la-biashara" && (
+                      {false && (
                         <div className={`mt-2 mb-4 rounded-2xl border ${darkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-slate-50/50"} overflow-hidden`}>
                           <button
                             type="button"
@@ -1134,37 +1133,6 @@ function Home({ session }: HomeProps) {
                             className="w-full select-none" 
                             draggable={false} 
                           />
-                          {currentStickerTemplate.fields.map((field) => {
-                            if (stickerType === "pochi-la-biashara") return null;
-                            const style = currentStickerStyles[field.key];
-                            if (!style) return null;
-                            let text = (style.fixedText !== undefined ? style.fixedText : (stickerValues[field.key] ?? "")).trim();
-                            text = text || field.label;
-
-                            return (
-                              <div
-                                key={field.key}
-                                style={{
-                                  left: `${style.x}%`,
-                                  top: `${style.y}%`,
-                                  color: style.color,
-                                  fontSize: `calc(${style.fontSize / 12.8}cqw)`,
-                                  letterSpacing: `calc(${(style.letterSpacing ?? 0) / 12.8}cqw)`,
-                                  fontWeight: style.fontWeight,
-                                  fontFamily: `${style.fontFamily || "Arial"}, sans-serif`,
-                                  maxWidth: `${style.maxWidthPct}%`,
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  lineHeight: 1.1,
-                                  transform: `translate(-50%, -50%) scaleY(${style.scaleY ?? 1})`,
-                                }}
-                                className="absolute -translate-x-1/2 -translate-y-1/2 text-center select-none pointer-events-none transition-all duration-75"
-                              >
-                                {text}
-                              </div>
-                            );
-                          })}
                         </div>
                         <div className="text-center py-5 px-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 shadow-sm">
                           <p className="text-base font-black tracking-tight text-blue-600 dark:text-blue-400">
