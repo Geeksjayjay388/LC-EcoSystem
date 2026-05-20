@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { jsPDF } from "jspdf";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import JSZip from "jszip";
 import type { Session } from "@supabase/supabase-js";
 import { 
   Download, 
@@ -18,9 +20,15 @@ import {
   GraduationCap,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Moon,
   Sun,
-  Check
+  Check,
+  Layers,
+  Scissors,
+  Pencil,
+  Save
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -37,7 +45,14 @@ type EcosystemFile = {
   created_at: string;
 };
 
-type SidebarTab = "files" | "stickers" | "students";
+type WorkspacePdf = {
+  id: string;
+  name: string;
+  file: File;
+  pageCount: number;
+};
+
+type SidebarTab = "files" | "tools" | "stickers" | "students";
 type StickerType = "lipa-na-mpesa" | "paybill" | "pochi-la-biashara";
 
 type StickerField = {
@@ -87,7 +102,7 @@ const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
     label: "Pochi la Biashara",
     templatePath: "/PochiLaBiashara.jpg",
     fields: [
-      { key: "phoneNumber", label: "Number", placeholder: "07XXXXXXXX" },
+      { key: "phoneNumber", label: "Number", placeholder: "07XX XXX XXX" },
     ],
   },
 };
@@ -96,7 +111,7 @@ const STICKER_TEMPLATES: Record<StickerType, StickerTemplate> = {
 
 const STICKER_FIELD_STYLE_DEFAULTS: Record<StickerType, Record<string, StickerFieldStyle>> = {
   "lipa-na-mpesa": {
-    tillNumber: { x: 54, y: 59.5, fontSize: 147, maxWidthPct: 100, color: "#111827", fontWeight: 900, fontFamily: "Arial", letterSpacing: 89, scaleY: 1 },
+    tillNumber: { x: 54, y: 59.5, fontSize: 147, maxWidthPct: 100, color: "#111827", fontWeight: 900, fontFamily: "Arial", letterSpacing: 85, scaleY: 1 },
   },
   paybill: {
     paybillNumber: { x: 53, y: 53, fontSize: 195, maxWidthPct: 100, color: "#111827", fontWeight: 700, fontFamily: "Arial", letterSpacing: 91.5, scaleY: 1.3 },
@@ -166,6 +181,59 @@ function isPdfFile(fileName: string): boolean {
   return fileName.split(".").pop()?.toLowerCase() === "pdf";
 }
 
+function ensurePdfFileName(name: string): string {
+  const cleaned = name.trim();
+  if (!cleaned) {
+    return `pdf-output-${Date.now()}.pdf`;
+  }
+  return cleaned.toLowerCase().endsWith(".pdf") ? cleaned : `${cleaned}.pdf`;
+}
+
+function parsePageRanges(input: string, pageCount: number): number[] {
+  const cleaned = input.trim();
+  if (!cleaned) {
+    throw new Error("Enter page numbers to split.");
+  }
+
+  const pages = new Set<number>();
+  const segments = cleaned.split(",").map((segment) => segment.trim()).filter(Boolean);
+
+  for (const segment of segments) {
+    if (segment.includes("-")) {
+      const [startRaw, endRaw] = segment.split("-").map((part) => part.trim());
+      const start = Number(startRaw);
+      const end = Number(endRaw);
+      if (!Number.isInteger(start) || !Number.isInteger(end)) {
+        throw new Error(`Invalid page range "${segment}".`);
+      }
+      if (start > end) {
+        throw new Error(`Invalid page range "${segment}".`);
+      }
+      for (let i = start; i <= end; i += 1) {
+        if (i < 1 || i > pageCount) {
+          throw new Error(`Page ${i} is out of range.`);
+        }
+        pages.add(i);
+      }
+    } else {
+      const page = Number(segment);
+      if (!Number.isInteger(page)) {
+        throw new Error(`Invalid page "${segment}".`);
+      }
+      if (page < 1 || page > pageCount) {
+        throw new Error(`Page ${page} is out of range.`);
+      }
+      pages.add(page);
+    }
+  }
+
+  if (!pages.size) {
+    throw new Error("No valid pages found.");
+  }
+
+  return Array.from(pages).sort((a, b) => a - b);
+}
+
 function Home({ session }: HomeProps) {
   const [files, setFiles] = useState<EcosystemFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
@@ -189,6 +257,18 @@ function Home({ session }: HomeProps) {
   const [generatingSticker, setGeneratingSticker] = useState(false);
   const [generatedStickerPreview, setGeneratedStickerPreview] = useState<string | null>(null);
   const [stickerError, setStickerError] = useState<string | null>(null);
+  const [pdfWorkspaceFiles, setPdfWorkspaceFiles] = useState<WorkspacePdf[]>([]);
+  const [pdfWorkspaceError, setPdfWorkspaceError] = useState<string | null>(null);
+  const [pdfWorking, setPdfWorking] = useState(false);
+  const [pdfSelectedId, setPdfSelectedId] = useState<string | null>(null);
+  const [pdfOutputBytes, setPdfOutputBytes] = useState<Uint8Array | null>(null);
+  const [pdfOutputName, setPdfOutputName] = useState("pdf-output.pdf");
+  const [pdfEditText, setPdfEditText] = useState("");
+  const [pdfEditPage, setPdfEditPage] = useState(1);
+  const [pdfEditX, setPdfEditX] = useState(10);
+  const [pdfEditY, setPdfEditY] = useState(10);
+  const [pdfEditFontSize, setPdfEditFontSize] = useState(18);
+  const [pdfDetachPages, setPdfDetachPages] = useState("1");
 
   const fetchFiles = async () => {
     const { data, error: fetchError } = await supabase
@@ -232,6 +312,29 @@ function Home({ session }: HomeProps) {
     document.documentElement.classList.toggle("dark", darkMode);
     localStorage.setItem("home-dark-mode", darkMode ? "true" : "false");
   }, [darkMode]);
+
+  const selectedPdf = useMemo(() => {
+    if (!pdfSelectedId) return null;
+    return pdfWorkspaceFiles.find((file) => file.id === pdfSelectedId) ?? null;
+  }, [pdfSelectedId, pdfWorkspaceFiles]);
+
+  const pdfWorkspacePreviewUrls = useMemo(() => {
+    const urls = new Map<string, string>();
+    pdfWorkspaceFiles.forEach((file) => {
+      urls.set(file.id, URL.createObjectURL(file.file));
+    });
+    return urls;
+  }, [pdfWorkspaceFiles]);
+
+  useEffect(() => {
+    return () => {
+      pdfWorkspacePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [pdfWorkspacePreviewUrls]);
+
+  const selectedPdfPreviewUrl = selectedPdf
+    ? pdfWorkspacePreviewUrls.get(selectedPdf.id) ?? null
+    : null;
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
@@ -282,6 +385,253 @@ function Home({ session }: HomeProps) {
     );
     setLoadingFiles(true);
     await fetchFiles();
+  };
+
+  const handlePdfWorkspaceUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (!selectedFiles.length) return;
+
+    setPdfWorking(true);
+    setPdfWorkspaceError(null);
+
+    const newItems: WorkspacePdf[] = [];
+    const rejectedFiles = selectedFiles.filter((file) => {
+      return !(file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+    });
+
+    if (rejectedFiles.length) {
+      setPdfWorkspaceError("Only PDF files can be added to the workspace.");
+    }
+
+    for (const file of selectedFiles) {
+      if (!(file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"))) {
+        continue;
+      }
+
+      try {
+        const bytes = await file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(bytes);
+        newItems.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          file,
+          pageCount: pdfDoc.getPageCount(),
+        });
+      } catch (uploadError) {
+        const message = uploadError instanceof Error ? uploadError.message : "Failed to read PDF.";
+        setPdfWorkspaceError(`Failed to read "${file.name}": ${message}`);
+      }
+    }
+
+    if (newItems.length) {
+      setPdfWorkspaceFiles((prev) => [...prev, ...newItems]);
+      if (!pdfSelectedId) {
+        setPdfSelectedId(newItems[0].id);
+      }
+    }
+
+    setPdfWorking(false);
+    event.target.value = "";
+  };
+
+  const movePdfWorkspaceItem = (id: string, direction: "up" | "down") => {
+    setPdfWorkspaceFiles((prev) => {
+      const index = prev.findIndex((file) => file.id === id);
+      if (index === -1) return prev;
+      const nextIndex = direction === "up" ? index - 1 : index + 1;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const updated = [...prev];
+      const [item] = updated.splice(index, 1);
+      updated.splice(nextIndex, 0, item);
+      return updated;
+    });
+  };
+
+  const removePdfWorkspaceItem = (id: string) => {
+    setPdfWorkspaceFiles((prev) => {
+      const next = prev.filter((file) => file.id !== id);
+      if (pdfSelectedId === id) {
+        setPdfSelectedId(next[0]?.id ?? null);
+      }
+      return next;
+    });
+  };
+
+  const handlePdfMerge = async () => {
+    if (pdfWorkspaceFiles.length < 2) {
+      setPdfWorkspaceError("Upload at least two PDFs to merge.");
+      return;
+    }
+
+    setPdfWorking(true);
+    setPdfWorkspaceError(null);
+
+    try {
+      const merged = await PDFDocument.create();
+      for (const file of pdfWorkspaceFiles) {
+        const bytes = await file.file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(bytes);
+        const pages = await merged.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        pages.forEach((page) => merged.addPage(page));
+      }
+
+      const mergedBytes = await merged.save();
+      setPdfOutputBytes(mergedBytes);
+      setPdfOutputName(ensurePdfFileName(`merged-${Date.now()}.pdf`));
+    } catch (mergeError) {
+      const message = mergeError instanceof Error ? mergeError.message : "Failed to merge PDFs.";
+      setPdfWorkspaceError(message);
+    } finally {
+      setPdfWorking(false);
+    }
+  };
+
+  const handlePdfEdit = async () => {
+    if (!selectedPdf) {
+      setPdfWorkspaceError("Select a PDF to edit.");
+      return;
+    }
+    if (!pdfEditText.trim()) {
+      setPdfWorkspaceError("Enter annotation text before editing.");
+      return;
+    }
+
+    setPdfWorking(true);
+    setPdfWorkspaceError(null);
+
+    try {
+      const bytes = await selectedPdf.file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(bytes);
+      const pageIndex = pdfEditPage - 1;
+      if (pageIndex < 0 || pageIndex >= pdfDoc.getPageCount()) {
+        throw new Error("The page number is out of range.");
+      }
+
+      const page = pdfDoc.getPage(pageIndex);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const width = page.getWidth();
+      const height = page.getHeight();
+      const x = (Math.min(Math.max(pdfEditX, 0), 100) / 100) * width;
+      const y = (Math.min(Math.max(pdfEditY, 0), 100) / 100) * height;
+
+      page.drawText(pdfEditText, {
+        x,
+        y,
+        size: Math.max(6, pdfEditFontSize),
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      const updatedBytes = await pdfDoc.save();
+      setPdfOutputBytes(updatedBytes);
+      const baseName = selectedPdf.name.replace(/\.pdf$/i, "");
+      setPdfOutputName(ensurePdfFileName(`${baseName}-annotated.pdf`));
+    } catch (editError) {
+      const message = editError instanceof Error ? editError.message : "Failed to edit PDF.";
+      setPdfWorkspaceError(message);
+    } finally {
+      setPdfWorking(false);
+    }
+  };
+
+  const handlePdfDetach = async () => {
+    if (!selectedPdf) {
+      setPdfWorkspaceError("Select a PDF to split pages from.");
+      return;
+    }
+
+    setPdfWorking(true);
+    setPdfWorkspaceError(null);
+
+    try {
+      const bytes = await selectedPdf.file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(bytes);
+      const pages = parsePageRanges(pdfDetachPages, pdfDoc.getPageCount()).map((page) => page - 1);
+      const baseName = selectedPdf.name.replace(/\.pdf$/i, "") || "split-pdf";
+      const folderName = `${baseName}-pages`;
+      const zip = new JSZip();
+      const folder = zip.folder(folderName) ?? zip;
+
+      for (const pageIndex of pages) {
+        const pageDoc = await PDFDocument.create();
+        const [page] = await pageDoc.copyPages(pdfDoc, [pageIndex]);
+        pageDoc.addPage(page);
+        const pageBytes = await pageDoc.save();
+        folder.file(`page-${pageIndex + 1}.pdf`, pageBytes);
+      }
+
+      const zipBytes = await zip.generateAsync({ type: "uint8array" });
+      const outputZipBytes = Uint8Array.from(zipBytes);
+      const zipBlob = new Blob([outputZipBytes], { type: "application/zip" });
+      const url = URL.createObjectURL(zipBlob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${folderName}.zip`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setUploadSuccessMessage(`Split ${pages.length} page${pages.length === 1 ? "" : "s"} into ${folderName}.zip.`);
+    } catch (detachError) {
+      const message = detachError instanceof Error ? detachError.message : "Failed to split PDF pages.";
+      setPdfWorkspaceError(message);
+    } finally {
+      setPdfWorking(false);
+    }
+  };
+
+  const handlePdfOutputDownload = () => {
+    if (!pdfOutputBytes) return;
+    const outputName = ensurePdfFileName(pdfOutputName);
+    const outputBytes = Uint8Array.from(pdfOutputBytes);
+    const blob = new Blob([outputBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = outputName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePdfSave = async () => {
+    if (!pdfOutputBytes) {
+      setPdfWorkspaceError("Generate a PDF before saving.");
+      return;
+    }
+
+    setPdfWorking(true);
+    setPdfWorkspaceError(null);
+
+    const outputName = ensurePdfFileName(pdfOutputName);
+    const storagePath = `${session.user.id}/${Date.now()}-${outputName}`;
+    const outputBytes = Uint8Array.from(pdfOutputBytes);
+    const blob = new Blob([outputBytes], { type: "application/pdf" });
+
+    const { error: storageError } = await supabase.storage
+      .from("ecosystem-vault")
+      .upload(storagePath, blob, { upsert: false, contentType: "application/pdf" });
+
+    if (storageError) {
+      setPdfWorkspaceError(storageError.message);
+      setPdfWorking(false);
+      return;
+    }
+
+    const { data: publicData } = supabase.storage.from("ecosystem-vault").getPublicUrl(storagePath);
+    const { error: insertError } = await supabase.from("lc_files").insert({
+      name: outputName,
+      public_url: publicData.publicUrl,
+      file_size: pdfOutputBytes.length,
+    });
+
+    if (insertError) {
+      setPdfWorkspaceError(insertError.message);
+      setPdfWorking(false);
+      return;
+    }
+
+    setUploadSuccessMessage(`Saved "${outputName}" to the vault.`);
+    setLoadingFiles(true);
+    await fetchFiles();
+    setPdfWorking(false);
   };
 
   const handleDelete = async (file: EcosystemFile) => {
@@ -443,7 +793,8 @@ function Home({ session }: HomeProps) {
 
 
   const sidebarItems = [
-    { key: "files", label: "Files (Home)", icon: FolderOpen },
+    { key: "files", label: "Shared Files", icon: FolderOpen },
+    { key: "tools", label: "Tools", icon: Layers },
     { key: "stickers", label: "Stickers", icon: Tag },
     { key: "students", label: "Students Portal", icon: GraduationCap },
   ] as const;
@@ -786,6 +1137,427 @@ function Home({ session }: HomeProps) {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "tools" && (
+              <div className="space-y-8">
+                <section
+                  className={`rounded-[28px] border p-5 ${
+                    darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${
+                          darkMode
+                            ? "border-slate-700 bg-slate-950 text-red-400"
+                            : "border-red-100 bg-red-50 text-red-500"
+                        }`}
+                      >
+                        <FileText className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-500">
+                          PDF Studio
+                        </p>
+                        <h2 className={`text-lg font-extrabold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                          Lanet Computers PDF Toolkit
+                        </h2>
+                        <p className={`text-xs ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                          Upload, merge, annotate, split, and save in one workspace.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <label
+                        className={`flex h-11 cursor-pointer items-center gap-2 rounded-2xl px-4 text-xs font-bold uppercase tracking-widest text-white transition ${
+                          pdfWorking ? "bg-red-500" : "bg-red-600 hover:bg-red-700"
+                        }`}
+                      >
+                        {pdfWorking ? <Loader className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        Upload PDF
+                        <input
+                          type="file"
+                          multiple
+                          accept="application/pdf"
+                          className="hidden"
+                          onChange={handlePdfWorkspaceUpload}
+                          disabled={pdfWorking}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => void handlePdfMerge()}
+                        disabled={pdfWorking || pdfWorkspaceFiles.length < 2}
+                        className="flex h-11 items-center gap-2 rounded-2xl border border-red-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-slate-950 dark:text-red-300 dark:hover:bg-red-950/20"
+                      >
+                        <Layers className="h-4 w-4" />
+                        Merge
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void handlePdfEdit()}
+                        disabled={pdfWorking || !selectedPdf}
+                        className="flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void handlePdfDetach()}
+                        disabled={pdfWorking || !selectedPdf}
+                        className="flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                      >
+                        <Scissors className="h-4 w-4" />
+                        Split
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void handlePdfSave()}
+                        disabled={pdfWorking || !pdfOutputBytes}
+                        className="flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-4 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Save className="h-4 w-4" />
+                        Save
+                      </button>
+                    </div>
+                  </div>
+
+                  {pdfWorkspaceError && (
+                    <div
+                      className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-medium ${
+                        darkMode
+                          ? "border-red-900 bg-red-950/30 text-red-300"
+                          : "border-red-200 bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {pdfWorkspaceError}
+                    </div>
+                  )}
+
+                  <div className="mt-5 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+                    <div
+                      className={`rounded-2xl border p-4 ${
+                        darkMode ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <h3 className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                          Workspace PDFs
+                        </h3>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                          {pdfWorkspaceFiles.length} files
+                        </span>
+                      </div>
+
+                      {pdfWorkspaceFiles.length === 0 ? (
+                        <div className={`mt-4 rounded-2xl border border-dashed px-4 py-6 text-center text-xs ${darkMode ? "border-slate-800 text-slate-500" : "border-slate-300 text-slate-500"}`}>
+                          Drop PDFs here or use Upload PDF to start building your merge list.
+                        </div>
+                      ) : (
+                        <div className="mt-4 space-y-3">
+                          {pdfWorkspaceFiles.map((file, index) => {
+                            const isSelected = file.id === pdfSelectedId;
+                            const previewUrl = pdfWorkspacePreviewUrls.get(file.id);
+
+                            return (
+                              <div
+                                key={file.id}
+                                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+                                  isSelected
+                                    ? "border-red-300 bg-red-50 dark:border-red-800/50 dark:bg-red-950/30"
+                                    : darkMode
+                                    ? "border-slate-800 bg-slate-900"
+                                    : "border-slate-200 bg-white"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setPdfSelectedId(file.id)}
+                                  className="flex flex-1 items-center gap-3 text-left"
+                                >
+                                  <div
+                                    className={`relative h-14 w-14 overflow-hidden rounded-xl border ${
+                                      darkMode ? "border-slate-700 bg-slate-950" : "border-slate-200 bg-white"
+                                    }`}
+                                  >
+                                    {previewUrl ? (
+                                      <iframe
+                                        src={`${previewUrl}#page=1&toolbar=0&navpanes=0&scrollbar=0`}
+                                        className="h-[200%] w-[200%] origin-top-left scale-[0.5] border-none pointer-events-none"
+                                        title={`${file.name}-preview`}
+                                      />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center">
+                                        <FileText className="h-5 w-5 text-red-500" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                                      #{index + 1}
+                                    </span>
+                                    <p className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                                      {file.name}
+                                    </p>
+                                    <p className={`text-[10px] font-semibold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                                      {file.pageCount} pages
+                                    </p>
+                                  </div>
+                                </button>
+
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => movePdfWorkspaceItem(file.id, "up")}
+                                    disabled={index === 0}
+                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-transparent text-slate-400 transition hover:border-slate-300 hover:text-slate-700 disabled:opacity-40 dark:hover:border-slate-700 dark:hover:text-slate-200"
+                                  >
+                                    <ChevronUp className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => movePdfWorkspaceItem(file.id, "down")}
+                                    disabled={index === pdfWorkspaceFiles.length - 1}
+                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-transparent text-slate-400 transition hover:border-slate-300 hover:text-slate-700 disabled:opacity-40 dark:hover:border-slate-700 dark:hover:text-slate-200"
+                                  >
+                                    <ChevronDown className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removePdfWorkspaceItem(file.id)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-transparent text-slate-400 transition hover:border-red-200 hover:text-red-500 dark:hover:border-red-900/60"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      className={`rounded-2xl border p-4 ${
+                        darkMode ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>PDF Preview</h3>
+                          <div
+                            className={`mt-2 overflow-hidden rounded-2xl border ${
+                              darkMode ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-slate-50"
+                            }`}
+                          >
+                            {selectedPdfPreviewUrl ? (
+                              <iframe
+                                src={`${selectedPdfPreviewUrl}#page=1&toolbar=0&navpanes=0&scrollbar=0`}
+                                className="h-[360px] w-full border-none"
+                                title="Selected PDF preview"
+                              />
+                            ) : (
+                              <div className={`flex h-[360px] items-center justify-center text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                                Upload a PDF to preview it here.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>PDF Settings</h3>
+                          <p className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                            Select a file to edit or split pages.
+                          </p>
+                        </div>
+
+                        <div
+                          className={`rounded-2xl border px-4 py-3 text-xs font-semibold ${
+                            darkMode ? "border-slate-800 text-slate-300" : "border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          {selectedPdf ? (
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate">{selectedPdf.name}</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-red-500">
+                                {selectedPdf.pageCount} pages
+                              </span>
+                            </div>
+                          ) : (
+                            "No PDF selected yet."
+                          )}
+                        </div>
+
+                        <div>
+                          <label className={`mb-1 block text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                            Output name
+                          </label>
+                          <input
+                            type="text"
+                            value={pdfOutputName}
+                            onChange={(e) => setPdfOutputName(e.target.value)}
+                            className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                              darkMode
+                                ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600"
+                                : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                            }`}
+                          />
+                        </div>
+
+                        <div className="space-y-3 border-t border-dashed pt-4">
+                          <div>
+                            <label className={`mb-1 block text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                              Annotation text
+                            </label>
+                            <input
+                              type="text"
+                              value={pdfEditText}
+                              onChange={(e) => setPdfEditText(e.target.value)}
+                              placeholder="Type the note to add"
+                              className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                darkMode
+                                  ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600"
+                                  : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                              }`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className={`mb-1 block text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                                Page
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={selectedPdf?.pageCount ?? 1}
+                                value={pdfEditPage}
+                                onChange={(e) => {
+                                  const next = Number(e.target.value);
+                                  setPdfEditPage(Number.isFinite(next) && next > 0 ? next : 1);
+                                }}
+                                className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                  darkMode
+                                    ? "border-slate-700 bg-slate-950 text-slate-100"
+                                    : "border-slate-300 bg-white text-slate-900"
+                                }`}
+                              />
+                            </div>
+                            <div>
+                              <label className={`mb-1 block text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                                Font size
+                              </label>
+                              <input
+                                type="number"
+                                min={6}
+                                value={pdfEditFontSize}
+                                onChange={(e) => {
+                                  const next = Number(e.target.value);
+                                  setPdfEditFontSize(Number.isFinite(next) && next > 0 ? next : 18);
+                                }}
+                                className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                  darkMode
+                                    ? "border-slate-700 bg-slate-950 text-slate-100"
+                                    : "border-slate-300 bg-white text-slate-900"
+                                }`}
+                              />
+                            </div>
+                            <div>
+                              <label className={`mb-1 block text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                                X (%)
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={pdfEditX}
+                                onChange={(e) => {
+                                  const next = Number(e.target.value);
+                                  setPdfEditX(Number.isFinite(next) ? next : 0);
+                                }}
+                                className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                  darkMode
+                                    ? "border-slate-700 bg-slate-950 text-slate-100"
+                                    : "border-slate-300 bg-white text-slate-900"
+                                }`}
+                              />
+                            </div>
+                            <div>
+                              <label className={`mb-1 block text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                                Y (%)
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={pdfEditY}
+                                onChange={(e) => {
+                                  const next = Number(e.target.value);
+                                  setPdfEditY(Number.isFinite(next) ? next : 0);
+                                }}
+                                className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                  darkMode
+                                    ? "border-slate-700 bg-slate-950 text-slate-100"
+                                    : "border-slate-300 bg-white text-slate-900"
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 border-t border-dashed pt-4">
+                          <div>
+                            <label className={`mb-1 block text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                              Split pages
+                            </label>
+                            <input
+                              type="text"
+                              value={pdfDetachPages}
+                              onChange={(e) => setPdfDetachPages(e.target.value)}
+                              placeholder="e.g. 1-3,5"
+                              className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                darkMode
+                                  ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600"
+                                  : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {pdfOutputBytes && (
+                          <div className={`rounded-2xl border px-4 py-3 text-xs ${darkMode ? "border-emerald-900/40 bg-emerald-950/20 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest">Output ready</p>
+                                <p className="text-sm font-bold">{ensurePdfFileName(pdfOutputName)}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handlePdfOutputDownload}
+                                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-emerald-700"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                Download
+                              </button>
+                            </div>
+                            <p className="mt-2 text-[10px] font-semibold uppercase tracking-widest">
+                              {formatFileSize(pdfOutputBytes.length)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </div>
             )}
 
