@@ -128,7 +128,7 @@ Vercel Deployment Infrastructure
 - Secure access policies using Row-Level Security (RLS)
 - Fully serverless deployment workflow
 
----
+------------------------
 
 # 🛠️ Tech Stack
 
@@ -145,7 +145,7 @@ Vercel Deployment Infrastructure
 | Version Control | Git + GitHub |
 | Document Export | jsPDF |
 
----
+---------------------------
 
 # 📸 Screenshots
 

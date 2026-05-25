@@ -5,7 +5,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import JSZip from "jszip";
 import type { Session } from "@supabase/supabase-js";
 import { 
-  Download, 
+  Download,
   LogOut, 
   Search, 
   Trash2, 
@@ -547,29 +547,17 @@ function Home({ session }: HomeProps) {
       const bytes = await selectedPdf.file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(bytes);
       const pages = parsePageRanges(pdfDetachPages, pdfDoc.getPageCount()).map((page) => page - 1);
-      const baseName = selectedPdf.name.replace(/\.pdf$/i, "") || "split-pdf";
-      const folderName = `${baseName}-pages`;
-      const zip = new JSZip();
-      const folder = zip.folder(folderName) ?? zip;
+      
+      const newPdfDoc = await PDFDocument.create();
+      const copiedPages = await newPdfDoc.copyPages(pdfDoc, pages);
+      copiedPages.forEach((page) => newPdfDoc.addPage(page));
 
-      for (const pageIndex of pages) {
-        const pageDoc = await PDFDocument.create();
-        const [page] = await pageDoc.copyPages(pdfDoc, [pageIndex]);
-        pageDoc.addPage(page);
-        const pageBytes = await pageDoc.save();
-        folder.file(`page-${pageIndex + 1}.pdf`, pageBytes);
-      }
-
-      const zipBytes = await zip.generateAsync({ type: "uint8array" });
-      const outputZipBytes = Uint8Array.from(zipBytes);
-      const zipBlob = new Blob([outputZipBytes], { type: "application/zip" });
-      const url = URL.createObjectURL(zipBlob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${folderName}.zip`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      setUploadSuccessMessage(`Split ${pages.length} page${pages.length === 1 ? "" : "s"} into ${folderName}.zip.`);
+      const updatedBytes = await newPdfDoc.save();
+      setPdfOutputBytes(updatedBytes);
+      const baseName = selectedPdf.name.replace(/\.pdf$/i, "");
+      setPdfOutputName(ensurePdfFileName(`${baseName}-split.pdf`));
+      
+      setUploadSuccessMessage(`Successfully split ${pages.length} page${pages.length === 1 ? "" : "s"}.`);
     } catch (detachError) {
       const message = detachError instanceof Error ? detachError.message : "Failed to split PDF pages.";
       setPdfWorkspaceError(message);
