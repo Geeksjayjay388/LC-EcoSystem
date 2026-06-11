@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { jsPDF } from "jspdf";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import JSZip from "jszip";
 import type { Session } from "@supabase/supabase-js";
 import { 
   Download,
@@ -28,7 +27,12 @@ import {
   Layers,
   Scissors,
   Pencil,
-  Save
+  Save,
+  RefreshCw,
+  Settings,
+  Clock,
+  Sparkles,
+  Info
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -269,6 +273,158 @@ function Home({ session }: HomeProps) {
   const [pdfEditY, setPdfEditY] = useState(10);
   const [pdfEditFontSize, setPdfEditFontSize] = useState(18);
   const [pdfDetachPages, setPdfDetachPages] = useState("1");
+
+  // Auto-Refresh & UI Update States
+  const [dataRefreshInterval, setDataRefreshInterval] = useState<number>(() => {
+    const saved = localStorage.getItem("ecosystem-data-refresh-interval");
+    return saved !== null ? Number(saved) : 60000; // default 60s
+  });
+  const [uiCheckInterval, setUiCheckInterval] = useState<number>(() => {
+    const saved = localStorage.getItem("ecosystem-ui-check-interval");
+    return saved !== null ? Number(saved) : 300000; // default 5m
+  });
+  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+  const [uiUpdateAvailable, setUiUpdateAvailable] = useState(false);
+  const [isDataRefreshing, setIsDataRefreshing] = useState(false);
+  const [showSyncSettings, setShowSyncSettings] = useState(false);
+  const [nextSyncCountdown, setNextSyncCountdown] = useState<number>(() => {
+    const saved = localStorage.getItem("ecosystem-data-refresh-interval");
+    const val = saved !== null ? Number(saved) : 60000;
+    return val > 0 ? val / 1000 : 0;
+  });
+
+  const fetchFilesSilent = async () => {
+    setIsDataRefreshing(true);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from("lc_files")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (fetchError) {
+        console.error("Silent data fetch error:", fetchError.message);
+      } else {
+        setFiles(data ?? []);
+        setLastSyncTime(new Date());
+      }
+    } catch (err) {
+      console.error("Failed silently to fetch files:", err);
+    } finally {
+      setIsDataRefreshing(false);
+    }
+  };
+
+  const checkUiUpdate = async () => {
+    try {
+      const res = await fetch("/", { cache: "no-store" });
+      if (!res.ok) return;
+      const htmlText = await res.text();
+      
+      // Parse scripts in newly fetched index.html
+      // Vite scripts usually have pattern: src="/assets/index-xxxxxxxx.js"
+      const scriptRegex = /src=["'](\/assets\/index-[a-zA-Z0-9_-]+\.js)["']/g;
+      
+      // Get all current scripts loaded in page DOM
+      const currentScripts = Array.from(document.querySelectorAll("script"))
+        .map((s) => s.getAttribute("src"))
+        .filter(Boolean) as string[];
+
+      const newScripts: string[] = [];
+      let match;
+      while ((match = scriptRegex.exec(htmlText)) !== null) {
+        newScripts.push(match[1]);
+      }
+
+      if (newScripts.length > 0) {
+        // If there's a script in the fetched HTML that is NOT in the current document,
+        // it means a new frontend version has been deployed!
+        const hasNewScript = newScripts.some((src) => !currentScripts.includes(src));
+        if (hasNewScript) {
+          setUiUpdateAvailable(true);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to check for UI updates:", err);
+    }
+  };
+
+  const handleManualSync = async () => {
+    setIsDataRefreshing(true);
+    await fetchFilesSilent();
+    await checkUiUpdate();
+    setNextSyncCountdown(dataRefreshInterval > 0 ? dataRefreshInterval / 1000 : 0);
+  };
+
+  const handleDataIntervalChange = (val: number) => {
+    setDataRefreshInterval(val);
+    localStorage.setItem("ecosystem-data-refresh-interval", String(val));
+    setNextSyncCountdown(val > 0 ? val / 1000 : 0);
+  };
+
+  const handleUiIntervalChange = (val: number) => {
+    setUiCheckInterval(val);
+    localStorage.setItem("ecosystem-ui-check-interval", String(val));
+  };
+
+  // Data polling interval
+  useEffect(() => {
+    if (dataRefreshInterval <= 0) return;
+
+    const timer = setInterval(() => {
+      void fetchFilesSilent();
+      setNextSyncCountdown(dataRefreshInterval / 1000);
+    }, dataRefreshInterval);
+
+    return () => clearInterval(timer);
+  }, [dataRefreshInterval]);
+
+  // Countdown timer for next sync
+  useEffect(() => {
+    if (dataRefreshInterval <= 0) return;
+
+    const timer = setInterval(() => {
+      setNextSyncCountdown((prev) => {
+        if (prev <= 1) {
+          return dataRefreshInterval / 1000;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [dataRefreshInterval]);
+
+  // UI update checking interval
+  useEffect(() => {
+    if (uiCheckInterval <= 0) return;
+
+    // Run initially asynchronously to avoid synchronous setState inside render/effect block
+    const initTimer = setTimeout(() => {
+      void checkUiUpdate();
+    }, 0);
+
+    const timer = setInterval(() => {
+      void checkUiUpdate();
+    }, uiCheckInterval);
+
+    return () => {
+      clearTimeout(initTimer);
+      clearInterval(timer);
+    };
+  }, [uiCheckInterval]);
+
+  // Check on tab focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchFilesSilent();
+        void checkUiUpdate();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
 
   const fetchFiles = async () => {
     const { data, error: fetchError } = await supabase
@@ -937,6 +1093,171 @@ function Home({ session }: HomeProps) {
 
         <div className="min-w-0 flex-1">
           <main className="mx-auto max-w-7xl p-6 lg:p-10">
+            {/* Global Top Bar */}
+            <div className={`mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-3xl border p-4 ${
+              darkMode ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white/60"
+            } backdrop-blur-md`}>
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+                  darkMode ? "border-slate-800 bg-slate-900 text-blue-400" : "border-slate-100 bg-blue-50 text-blue-600"
+                }`}>
+                  {activeTab === "files" && <FolderOpen className="h-5 w-5" />}
+                  {activeTab === "tools" && <Layers className="h-5 w-5" />}
+                  {activeTab === "stickers" && <Tag className="h-5 w-5" />}
+                  {activeTab === "students" && <GraduationCap className="h-5 w-5" />}
+                </div>
+                <div>
+                  <h1 className={`text-base font-extrabold tracking-tight capitalize ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : "Students Administration"}
+                  </h1>
+                  <p className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                    Lanet Computers Ecosystem Portal
+                  </p>
+                </div>
+              </div>
+
+              {/* Sync Status Controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Status Badge */}
+                <div className={`flex items-center gap-2 rounded-2xl border px-3 py-1.5 text-xs font-semibold ${
+                  darkMode ? "border-slate-800 bg-slate-950 text-slate-300" : "border-slate-200 bg-slate-50 text-slate-600"
+                }`}>
+                  <span className="relative flex h-2 w-2">
+                    <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
+                      isDataRefreshing ? "bg-blue-400" : uiUpdateAvailable ? "bg-yellow-400" : "bg-emerald-400"
+                    }`} />
+                    <span className={`relative inline-flex h-2 w-2 rounded-full ${
+                      isDataRefreshing ? "bg-blue-500" : uiUpdateAvailable ? "bg-yellow-500" : "bg-emerald-500"
+                    }`} />
+                  </span>
+                  <span>
+                    {isDataRefreshing 
+                      ? "Syncing..." 
+                      : uiUpdateAvailable 
+                        ? "Update Available" 
+                        : dataRefreshInterval > 0 
+                          ? `Syncing in ${nextSyncCountdown}s` 
+                          : "Sync Idle"}
+                  </span>
+                </div>
+
+                {/* Last Synced Label */}
+                <div className={`hidden md:flex items-center gap-1.5 text-xs ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>
+                    Last Sync: {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
+
+                {/* Manual Sync Button */}
+                <button
+                  type="button"
+                  onClick={() => void handleManualSync()}
+                  disabled={isDataRefreshing}
+                  title="Force Sync Now"
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer ${
+                    darkMode 
+                      ? "border-slate-800 hover:border-slate-700 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white" 
+                      : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isDataRefreshing ? "animate-spin text-blue-500" : ""}`} />
+                </button>
+
+                {/* Settings Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowSyncSettings(prev => !prev)}
+                  title="Configure Sync & Updates"
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-300 active:scale-95 cursor-pointer ${
+                    showSyncSettings
+                      ? "border-blue-500/30 bg-blue-500/10 text-blue-500"
+                      : darkMode 
+                        ? "border-slate-800 hover:border-slate-700 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white" 
+                        : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Sync Settings Panel (Expandable) */}
+            {showSyncSettings && (
+              <div className={`mb-6 rounded-3xl border p-5 shadow-xl animate-in slide-in-from-top-4 duration-300 ${
+                darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
+              }`}>
+                <div className="flex items-center gap-2 mb-4">
+                  <Settings className="h-4 w-4 text-blue-600" />
+                  <h3 className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                    System Sync & Updates Settings
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                      Data Sync Interval
+                    </label>
+                    <select
+                      value={dataRefreshInterval}
+                      onChange={(e) => handleDataIntervalChange(Number(e.target.value))}
+                      className={`h-10 w-full rounded-xl border px-3 text-xs outline-none ${
+                        darkMode ? "border-slate-700 bg-slate-950 text-slate-100 focus:border-blue-500" : "border-slate-300 bg-white text-slate-900 focus:border-blue-600"
+                      }`}
+                    >
+                      <option value={15000}>Every 15 Seconds</option>
+                      <option value={30000}>Every 30 Seconds</option>
+                      <option value={60000}>Every 1 Minute</option>
+                      <option value={300000}>Every 5 Minutes</option>
+                      <option value={600000}>Every 10 Minutes</option>
+                      <option value={0}>Manual Sync Only</option>
+                    </select>
+                    <p className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                      Determines how often the central vault updates the list of shared files in the background.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                      UI Build Check Interval
+                    </label>
+                    <select
+                      value={uiCheckInterval}
+                      onChange={(e) => handleUiIntervalChange(Number(e.target.value))}
+                      className={`h-10 w-full rounded-xl border px-3 text-xs outline-none ${
+                        darkMode ? "border-slate-700 bg-slate-950 text-slate-100 focus:border-blue-500" : "border-slate-300 bg-white text-slate-900 focus:border-blue-600"
+                      }`}
+                    >
+                      <option value={30000}>Every 30 Seconds</option>
+                      <option value={60000}>Every 1 Minute</option>
+                      <option value={300000}>Every 5 Minutes</option>
+                      <option value={900000}>Every 15 Minutes</option>
+                      <option value={1800000}>Every 30 Minutes</option>
+                      <option value={0}>Disable Check</option>
+                    </select>
+                    <p className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                      Determines how often the system checks if a new frontend UI deployment has been pushed.
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`mt-4 border-t pt-3 flex items-center justify-between text-xs ${darkMode ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
+                  <span className="flex items-center gap-1.5">
+                    <Info className="h-3.5 w-3.5 text-blue-500 animate-pulse" />
+                    <span>Auto-refresh is active on page focus by default.</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSyncSettings(false)}
+                    className="text-blue-600 hover:text-blue-700 font-bold cursor-pointer"
+                  >
+                    Close Settings
+                  </button>
+                </div>
+              </div>
+            )}
+
             {activeTab === "files" && (
               <div className="space-y-8">
                 <p className={`text-sm font-semibold ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
@@ -1822,6 +2143,48 @@ function Home({ session }: HomeProps) {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {uiUpdateAvailable && (
+        <div className={`fixed bottom-6 left-6 z-50 w-full max-w-md rounded-2xl border p-4 shadow-2xl animate-in slide-in-from-left-10 duration-500 ${
+          darkMode ? "border-slate-800 bg-slate-900 shadow-slate-950/50" : "border-blue-100 bg-white shadow-blue-100/30"
+        }`}>
+          <div className="flex gap-4">
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${darkMode ? "bg-blue-950/30" : "bg-blue-50"}`}>
+              <Sparkles className="h-6 w-6 text-blue-600 animate-pulse" />
+            </div>
+            <div className="flex-1">
+              <p className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>System Update Available</p>
+              <p className={`text-xs mt-0.5 ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                A new version of the Eco-System platform is ready with latest UI features & backend updates.
+              </p>
+              <div className="mt-3 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                >
+                  Reload Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUiUpdateAvailable(false)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                    darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Later
+                </button>
+              </div>
+            </div>
+            <button 
+              onClick={() => setUiUpdateAvailable(false)}
+              className="text-slate-400 hover:text-slate-300 cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}
