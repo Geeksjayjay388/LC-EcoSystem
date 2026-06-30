@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* Enforce strict zero round bordered design across the entire application */
+* {
+  border-radius: 0px !important;
+}

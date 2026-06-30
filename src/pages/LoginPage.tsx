@@ -37,7 +37,7 @@ const LoginPage = () => {
     return (
         <div 
             onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
-            className="min-h-screen bg-[#fcfcfc] flex items-center justify-center p-4 lg:p-8 font-sans selection:bg-blue-100 relative overflow-hidden"
+            className="min-h-screen bg-[#fcfcfc] flex items-center justify-center p-4 lg:p-8 font-sans selection:bg-emerald-100 relative overflow-hidden"
         >
             {/* Interactive Dot Grid Background */}
             <div 
@@ -50,12 +50,12 @@ const LoginPage = () => {
             <div 
                 className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300"
                 style={{
-                    background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(59, 130, 246, 0.08), transparent 40%)`
+                    background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(4, 120, 87, 0.08), transparent 40%)`
                 }}
             />
 
             {/* Main Container */}
-            <div className="relative z-10 w-full max-w-[1100px] min-h-[650px] grid lg:grid-cols-12 overflow-hidden rounded-[32px] bg-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.12)] border border-slate-100">
+            <div className="relative z-10 w-full max-w-[1100px] min-h-[650px] grid lg:grid-cols-12 overflow-hidden rounded-none bg-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.12)] border border-slate-100">
                 
                 {/* Left Side: Brand & Visuals */}
                 <section className="relative hidden lg:flex lg:col-span-5 flex-col justify-between p-12 overflow-hidden bg-[#0f172a]">
@@ -65,11 +65,11 @@ const LoginPage = () => {
                         alt="Security Infrastructure"
                         className="absolute inset-0 h-full w-full object-cover opacity-40 mix-blend-luminosity"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-slate-900/90 to-slate-900" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-800/20 via-slate-900/90 to-slate-900" />
                     
                     <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-12">
-                            <div className="h-10 w-10 rounded-xl bg-white p-2 shadow-xl shadow-blue-500/20">
+                            <div className="h-10 w-10 rounded-none bg-white p-2 shadow-xl shadow-emerald-950/20">
                                 <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
                             </div>
                             <span className="text-white font-bold tracking-tight text-xl uppercase">Lanet Computers</span>
@@ -77,7 +77,7 @@ const LoginPage = () => {
                         
                         <h1 className="text-4xl font-extrabold text-white leading-tight tracking-tight">
                             Lanet Computers<br/> 
-                            <span className="text-blue-400">Ecosystem.</span>
+                            <span className="text-emerald-400">Ecosystem.</span>
                         </h1>
                         <p className="mt-6 text-slate-400 leading-relaxed max-w-xs text-sm">
                             Access the encrypted file vault. Monitor node protocols and manage enterprise assets with end-to-end authorization.
@@ -99,7 +99,7 @@ const LoginPage = () => {
                         </header>
 
                         {error && (
-                            <div className="mb-8 flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50/50 p-4 text-sm text-red-600 animate-in fade-in slide-in-from-top-2">
+                            <div className="mb-8 flex items-center gap-3 rounded-none border border-red-100 bg-red-50/50 p-4 text-sm text-red-600 animate-in fade-in slide-in-from-top-2">
                                 <ShieldCheck className="h-5 w-5 shrink-0 opacity-80" />
                                 {error}
                             </div>
@@ -107,7 +107,7 @@ const LoginPage = () => {
 
                         <form onSubmit={handleLogin} className="space-y-6">
                             <div className="group">
-                                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400 group-focus-within:text-emerald-700 transition-colors">
                                     Terminal ID
                                 </label>
                                 <div className="relative">
@@ -116,7 +116,7 @@ const LoginPage = () => {
                                         type="text"
                                         required
                                         placeholder="Enter ID (e.g. 2343)"
-                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/5 placeholder:text-slate-400"
+                                        className="w-full rounded-none border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-slate-900 outline-none transition-all focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-600/5 placeholder:text-slate-400"
                                         value={deviceId}
                                         onChange={(e) => setDeviceId(e.target.value)}
                                     />
@@ -124,7 +124,7 @@ const LoginPage = () => {
                             </div>
 
                             <div className="group">
-                                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400 group-focus-within:text-emerald-700 transition-colors">
                                     Access Password
                                 </label>
                                 <div className="relative">
@@ -133,7 +133,7 @@ const LoginPage = () => {
                                         type="password"
                                         required
                                         placeholder="••••••••"
-                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/5 placeholder:text-slate-400"
+                                        className="w-full rounded-none border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-slate-900 outline-none transition-all focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-600/5 placeholder:text-slate-400"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                     />
@@ -143,7 +143,7 @@ const LoginPage = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#0f172a] py-4 text-sm font-bold text-white transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-70 shadow-xl shadow-slate-200"
+                                className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-none bg-[#0f172a] py-4 text-sm font-bold text-white transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-70 shadow-xl shadow-emerald-950/10"
                             >
                                 {loading ? (
                                     <Loader2 className="h-5 w-5 animate-spin" />

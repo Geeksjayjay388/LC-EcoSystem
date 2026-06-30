@@ -969,7 +969,7 @@ function Home({ session }: HomeProps) {
                 }`}
               >
                 <div
-                  className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${
+                  className={`flex h-11 w-11 items-center justify-center rounded-none border ${
                     darkMode
                       ? "border-slate-800 bg-slate-900"
                       : "border-slate-200 bg-slate-50"
@@ -992,7 +992,7 @@ function Home({ session }: HomeProps) {
                       LANET COMPUTERS
                     </h2>
 
-                    <p className="text-xs text-blue-600 font-medium">
+                    <p className="text-xs text-emerald-700 font-medium">
                       Eco-System
                     </p>
                   </div>
@@ -1001,7 +1001,7 @@ function Home({ session }: HomeProps) {
 
               <button
                 onClick={() => setSidebarCollapsed((prev) => !prev)}
-                className={`flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+                className={`flex h-9 w-9 items-center justify-center rounded-none border transition ${
                   darkMode
                     ? "border-slate-800 text-slate-400 hover:bg-slate-900"
                     : "border-slate-200 text-slate-500 hover:bg-slate-100"
@@ -1023,9 +1023,9 @@ function Home({ session }: HomeProps) {
                   <button
                     key={item.key}
                     onClick={() => setActiveTab(item.key)}
-                    className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                    className={`flex w-full items-center gap-3 rounded-none px-4 py-3 text-sm font-medium transition ${
                       isActive
-                        ? "bg-blue-600 text-white"
+                        ? "bg-emerald-700 text-white"
                         : darkMode
                         ? "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -1042,7 +1042,7 @@ function Home({ session }: HomeProps) {
             <div className="mt-auto space-y-3">
               <button
                 onClick={() => setDarkMode((prev) => !prev)}
-                className={`flex h-11 w-full items-center gap-3 rounded-2xl border px-4 text-sm font-medium transition ${
+                className={`flex h-11 w-full items-center gap-3 rounded-none border px-4 text-sm font-medium transition ${
                   sidebarCollapsed ? "justify-center" : ""
                 } ${
                   darkMode
@@ -1075,7 +1075,7 @@ function Home({ session }: HomeProps) {
 
               <button
                 onClick={() => supabase.auth.signOut()}
-                className={`flex h-11 w-full items-center gap-3 rounded-2xl border px-4 text-sm font-medium transition ${
+                className={`flex h-11 w-full items-center gap-3 rounded-none border px-4 text-sm font-medium transition ${
                   sidebarCollapsed ? "justify-center" : ""
                 } ${
                   darkMode
@@ -1094,12 +1094,12 @@ function Home({ session }: HomeProps) {
         <div className="min-w-0 flex-1">
           <main className="mx-auto max-w-7xl p-6 lg:p-10">
             {/* Global Top Bar */}
-            <div className={`mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-3xl border p-4 ${
-              darkMode ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white/60"
-            } backdrop-blur-md`}>
+            <div className={`mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-none border p-4 ${
+              darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
+            }`}>
               <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
-                  darkMode ? "border-slate-800 bg-slate-900 text-blue-400" : "border-slate-100 bg-blue-50 text-blue-600"
+                <div className={`flex h-10 w-10 items-center justify-center rounded-none border ${
+                  darkMode ? "border-slate-800 bg-slate-900 text-emerald-400" : "border-slate-100 bg-emerald-50 text-emerald-700"
                 }`}>
                   {activeTab === "files" && <FolderOpen className="h-5 w-5" />}
                   {activeTab === "tools" && <Layers className="h-5 w-5" />}
@@ -1119,15 +1119,15 @@ function Home({ session }: HomeProps) {
               {/* Sync Status Controls */}
               <div className="flex flex-wrap items-center gap-3">
                 {/* Status Badge */}
-                <div className={`flex items-center gap-2 rounded-2xl border px-3 py-1.5 text-xs font-semibold ${
+                <div className={`flex items-center gap-2 rounded-none border px-3 py-1.5 text-xs font-semibold ${
                   darkMode ? "border-slate-800 bg-slate-950 text-slate-300" : "border-slate-200 bg-slate-50 text-slate-600"
                 }`}>
                   <span className="relative flex h-2 w-2">
-                    <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
-                      isDataRefreshing ? "bg-blue-400" : uiUpdateAvailable ? "bg-yellow-400" : "bg-emerald-400"
+                    <span className={`absolute inline-flex h-full w-full animate-ping rounded-none opacity-75 ${
+                      isDataRefreshing ? "bg-emerald-500" : uiUpdateAvailable ? "bg-yellow-400" : "bg-emerald-400"
                     }`} />
-                    <span className={`relative inline-flex h-2 w-2 rounded-full ${
-                      isDataRefreshing ? "bg-blue-500" : uiUpdateAvailable ? "bg-yellow-500" : "bg-emerald-500"
+                    <span className={`relative inline-flex h-2 w-2 rounded-none ${
+                      isDataRefreshing ? "bg-emerald-600" : uiUpdateAvailable ? "bg-yellow-500" : "bg-emerald-500"
                     }`} />
                   </span>
                   <span>
@@ -1155,13 +1155,13 @@ function Home({ session }: HomeProps) {
                   onClick={() => void handleManualSync()}
                   disabled={isDataRefreshing}
                   title="Force Sync Now"
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-none border transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer ${
                     darkMode 
                       ? "border-slate-800 hover:border-slate-700 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white" 
                       : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <RefreshCw className={`h-4 w-4 ${isDataRefreshing ? "animate-spin text-blue-500" : ""}`} />
+                  <RefreshCw className={`h-4 w-4 ${isDataRefreshing ? "animate-spin text-emerald-600" : ""}`} />
                 </button>
 
                 {/* Settings Toggle Button */}
@@ -1169,9 +1169,9 @@ function Home({ session }: HomeProps) {
                   type="button"
                   onClick={() => setShowSyncSettings(prev => !prev)}
                   title="Configure Sync & Updates"
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-300 active:scale-95 cursor-pointer ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-none border transition-all duration-300 active:scale-95 cursor-pointer ${
                     showSyncSettings
-                      ? "border-blue-500/30 bg-blue-500/10 text-blue-500"
+                      ? "border-emerald-600/30 bg-emerald-600/10 text-emerald-600"
                       : darkMode 
                         ? "border-slate-800 hover:border-slate-700 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white" 
                         : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900"
@@ -1184,11 +1184,11 @@ function Home({ session }: HomeProps) {
 
             {/* Sync Settings Panel (Expandable) */}
             {showSyncSettings && (
-              <div className={`mb-6 rounded-3xl border p-5 shadow-xl animate-in slide-in-from-top-4 duration-300 ${
+              <div className={`mb-6 rounded-none border p-5 shadow-xl animate-in slide-in-from-top-4 duration-300 ${
                 darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
               }`}>
                 <div className="flex items-center gap-2 mb-4">
-                  <Settings className="h-4 w-4 text-blue-600" />
+                  <Settings className="h-4 w-4 text-emerald-700" />
                   <h3 className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
                     System Sync & Updates Settings
                   </h3>
@@ -1202,8 +1202,8 @@ function Home({ session }: HomeProps) {
                     <select
                       value={dataRefreshInterval}
                       onChange={(e) => handleDataIntervalChange(Number(e.target.value))}
-                      className={`h-10 w-full rounded-xl border px-3 text-xs outline-none ${
-                        darkMode ? "border-slate-700 bg-slate-950 text-slate-100 focus:border-blue-500" : "border-slate-300 bg-white text-slate-900 focus:border-blue-600"
+                      className={`h-10 w-full rounded-none border px-3 text-xs outline-none ${
+                        darkMode ? "border-slate-700 bg-slate-950 text-slate-100 focus:border-emerald-600" : "border-slate-300 bg-white text-slate-900 focus:border-emerald-700"
                       }`}
                     >
                       <option value={15000}>Every 15 Seconds</option>
@@ -1225,8 +1225,8 @@ function Home({ session }: HomeProps) {
                     <select
                       value={uiCheckInterval}
                       onChange={(e) => handleUiIntervalChange(Number(e.target.value))}
-                      className={`h-10 w-full rounded-xl border px-3 text-xs outline-none ${
-                        darkMode ? "border-slate-700 bg-slate-950 text-slate-100 focus:border-blue-500" : "border-slate-300 bg-white text-slate-900 focus:border-blue-600"
+                      className={`h-10 w-full rounded-none border px-3 text-xs outline-none ${
+                        darkMode ? "border-slate-700 bg-slate-950 text-slate-100 focus:border-emerald-600" : "border-slate-300 bg-white text-slate-900 focus:border-emerald-700"
                       }`}
                     >
                       <option value={30000}>Every 30 Seconds</option>
@@ -1244,13 +1244,13 @@ function Home({ session }: HomeProps) {
 
                 <div className={`mt-4 border-t pt-3 flex items-center justify-between text-xs ${darkMode ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
                   <span className="flex items-center gap-1.5">
-                    <Info className="h-3.5 w-3.5 text-blue-500 animate-pulse" />
+                    <Info className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
                     <span>Auto-refresh is active on page focus by default.</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => setShowSyncSettings(false)}
-                    className="text-blue-600 hover:text-blue-700 font-bold cursor-pointer"
+                    className="text-emerald-700 hover:text-blue-700 font-bold cursor-pointer"
                   >
                     Close Settings
                   </button>
@@ -1260,12 +1260,20 @@ function Home({ session }: HomeProps) {
 
             {activeTab === "files" && (
               <div className="space-y-8">
+                {/* Banner Graphic */}
+                <div className={`border ${darkMode ? "border-slate-800" : "border-slate-200"} rounded-none overflow-hidden bg-slate-950`}>
+                  <img
+                    src="/lanet_computers_banner.png"
+                    alt="Lanet Computers Eco-System"
+                    className="w-full h-auto object-cover max-h-[300px]"
+                  />
+                </div>
                 <p className={`text-sm font-semibold ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
                   Shared files should appear here.
                 </p>
 
                 <section
-                  className={`flex flex-col items-center gap-4 rounded-2xl border p-3 md:flex-row ${
+                  className={`flex flex-col items-center gap-4 rounded-none border p-3 md:flex-row ${
                     darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
                   }`}
                 >
@@ -1278,7 +1286,7 @@ function Home({ session }: HomeProps) {
                     <input
                       type="text"
                       placeholder="Search files..."
-                      className={`h-11 w-full rounded-xl border-none bg-transparent pl-11 pr-4 text-sm focus:ring-0 ${
+                      className={`h-11 w-full rounded-none border-none bg-transparent pl-11 pr-4 text-sm focus:ring-0 ${
                         darkMode ? "text-slate-100 placeholder:text-slate-500" : "placeholder:text-slate-400"
                       }`}
                       value={searchTerm}
@@ -1287,8 +1295,8 @@ function Home({ session }: HomeProps) {
                   </div>
 
                   <label
-                    className={`flex h-11 cursor-pointer items-center gap-2 rounded-2xl px-5 text-sm font-medium text-white transition ${
-                      uploading ? "bg-blue-500" : "bg-blue-600 hover:bg-blue-700"
+                    className={`flex h-11 cursor-pointer items-center gap-2 rounded-none px-5 text-sm font-medium text-white transition ${
+                      uploading ? "bg-emerald-600" : "bg-emerald-700 hover:bg-emerald-800"
                     }`}
                   >
                     {uploading ? <Loader className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -1305,7 +1313,7 @@ function Home({ session }: HomeProps) {
 
                 {error && (
                   <div
-                    className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+                    className={`rounded-none border px-4 py-3 text-sm font-medium ${
                       darkMode ? "border-red-900 bg-red-950/30 text-red-300" : "border-red-200 bg-red-50 text-red-700"
                     }`}
                   >
@@ -1316,7 +1324,7 @@ function Home({ session }: HomeProps) {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between pt-4">
                     <div className="flex items-center gap-4">
-                      <div className="h-10 w-1 rounded-full bg-blue-600" />
+                      <div className="h-10 w-1 rounded-none bg-emerald-700" />
                       <div>
                         <h2 className={`text-xl font-black tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
                           Recent Vault Objects
@@ -1331,7 +1339,7 @@ function Home({ session }: HomeProps) {
                       </div>
                     </div>
                     <span
-                      className={`rounded-full border px-4 py-1.5 text-[10px] font-black uppercase tracking-widest ${
+                      className={`rounded-none border px-4 py-1.5 text-[10px] font-black uppercase tracking-widest ${
                         darkMode ? "border-slate-800 bg-slate-900 text-slate-400" : "border-slate-200 bg-slate-100 text-slate-500"
                       }`}
                     >
@@ -1382,10 +1390,10 @@ function Home({ session }: HomeProps) {
                               </div>
                             ) : (
                               <div className="flex h-full w-full flex-col items-center justify-center gap-3">
-                                <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${darkMode ? "bg-slate-800" : "bg-slate-100"}`}>
+                                <div className={`flex h-16 w-16 items-center justify-center rounded-none ${darkMode ? "bg-slate-800" : "bg-slate-100"}`}>
                                   <FileCode className={`h-8 w-8 ${darkMode ? "text-slate-500" : "text-slate-400"}`} />
                                 </div>
-                                <span className="text-[10px] font-black tracking-widest text-blue-600">{getFileExtension(file.name)}</span>
+                                <span className="text-[10px] font-black tracking-widest text-emerald-700">{getFileExtension(file.name)}</span>
                               </div>
                             )}
 
@@ -1397,7 +1405,7 @@ function Home({ session }: HomeProps) {
                           </div>
 
                           <div className="p-5">
-                            <h3 className={`mb-1 truncate text-sm font-bold transition-colors group-hover:text-blue-600 ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                            <h3 className={`mb-1 truncate text-sm font-bold transition-colors group-hover:text-emerald-700 ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
                               {file.name}
                             </h3>
                             <div className={`mb-5 flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
@@ -1408,8 +1416,8 @@ function Home({ session }: HomeProps) {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleDownload(file)}
-                                className={`flex flex-1 items-center justify-center gap-2 rounded-xl p-3 text-[11px] font-bold uppercase tracking-widest shadow-md transition-all active:scale-95 ${
-                                  darkMode ? "bg-slate-100 text-slate-950 hover:bg-blue-600 hover:text-white" : "bg-slate-900 text-white hover:bg-blue-600"
+                                className={`flex flex-1 items-center justify-center gap-2 rounded-none p-3 text-[11px] font-bold uppercase tracking-widest shadow-md transition-all active:scale-95 ${
+                                  darkMode ? "bg-slate-100 text-slate-950 hover:bg-emerald-700 hover:text-white" : "bg-slate-900 text-white hover:bg-emerald-700"
                                 }`}
                               >
                                 <Download className="h-3.5 w-3.5" />
@@ -1418,10 +1426,10 @@ function Home({ session }: HomeProps) {
                               {(isImageFile(file.name) || isPdfFile(file.name)) && (
                                 <button
                                   onClick={() => setPreviewFile(file)}
-                                  className={`rounded-xl border p-3 transition-all active:scale-95 ${
+                                  className={`rounded-none border p-3 transition-all active:scale-95 ${
                                     darkMode
-                                      ? "border-slate-700 bg-slate-800 text-slate-400 hover:border-blue-500 hover:text-blue-500"
-                                      : "border-slate-200 bg-white text-slate-400 hover:border-blue-200 hover:text-blue-600"
+                                      ? "border-slate-700 bg-slate-800 text-slate-400 hover:border-emerald-600 hover:text-emerald-600"
+                                      : "border-slate-200 bg-white text-slate-400 hover:border-emerald-200 hover:text-emerald-700"
                                   }`}
                                 >
                                   <Eye className="h-4 w-4" />
@@ -1430,7 +1438,7 @@ function Home({ session }: HomeProps) {
                               {file.owner_id === session.user.id && (
                                 <button
                                   onClick={() => setPendingDelete(file)}
-                                  className={`rounded-xl border p-3 transition-all active:scale-95 ${
+                                  className={`rounded-none border p-3 transition-all active:scale-95 ${
                                     darkMode
                                       ? "border-slate-700 bg-slate-800 text-slate-400 hover:border-red-500 hover:text-red-500"
                                       : "border-slate-200 bg-white text-slate-400 hover:border-red-200 hover:text-red-500"
@@ -1459,7 +1467,7 @@ function Home({ session }: HomeProps) {
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex items-center gap-4">
                       <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${
+                        className={`flex h-12 w-12 items-center justify-center rounded-none border ${
                           darkMode
                             ? "border-slate-700 bg-slate-950 text-red-400"
                             : "border-red-100 bg-red-50 text-red-500"
@@ -1482,7 +1490,7 @@ function Home({ session }: HomeProps) {
 
                     <div className="flex flex-wrap gap-2">
                       <label
-                        className={`flex h-11 cursor-pointer items-center gap-2 rounded-2xl px-4 text-xs font-bold uppercase tracking-widest text-white transition ${
+                        className={`flex h-11 cursor-pointer items-center gap-2 rounded-none px-4 text-xs font-bold uppercase tracking-widest text-white transition ${
                           pdfWorking ? "bg-red-500" : "bg-red-600 hover:bg-red-700"
                         }`}
                       >
@@ -1502,7 +1510,7 @@ function Home({ session }: HomeProps) {
                         type="button"
                         onClick={() => void handlePdfMerge()}
                         disabled={pdfWorking || pdfWorkspaceFiles.length < 2}
-                        className="flex h-11 items-center gap-2 rounded-2xl border border-red-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-slate-950 dark:text-red-300 dark:hover:bg-red-950/20"
+                        className="flex h-11 items-center gap-2 rounded-none border border-red-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-slate-950 dark:text-red-300 dark:hover:bg-red-950/20"
                       >
                         <Layers className="h-4 w-4" />
                         Merge
@@ -1512,7 +1520,7 @@ function Home({ session }: HomeProps) {
                         type="button"
                         onClick={() => void handlePdfEdit()}
                         disabled={pdfWorking || !selectedPdf}
-                        className="flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                        className="flex h-11 items-center gap-2 rounded-none border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                       >
                         <Pencil className="h-4 w-4" />
                         Edit
@@ -1522,7 +1530,7 @@ function Home({ session }: HomeProps) {
                         type="button"
                         onClick={() => void handlePdfDetach()}
                         disabled={pdfWorking || !selectedPdf}
-                        className="flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                        className="flex h-11 items-center gap-2 rounded-none border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                       >
                         <Scissors className="h-4 w-4" />
                         Split
@@ -1532,7 +1540,7 @@ function Home({ session }: HomeProps) {
                         type="button"
                         onClick={() => void handlePdfSave()}
                         disabled={pdfWorking || !pdfOutputBytes}
-                        className="flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-4 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="flex h-11 items-center gap-2 rounded-none bg-emerald-600 px-4 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Save className="h-4 w-4" />
                         Save
@@ -1542,7 +1550,7 @@ function Home({ session }: HomeProps) {
 
                   {pdfWorkspaceError && (
                     <div
-                      className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-medium ${
+                      className={`mt-4 rounded-none border px-4 py-3 text-sm font-medium ${
                         darkMode
                           ? "border-red-900 bg-red-950/30 text-red-300"
                           : "border-red-200 bg-red-50 text-red-700"
@@ -1554,7 +1562,7 @@ function Home({ session }: HomeProps) {
 
                   <div className="mt-5 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
                     <div
-                      className={`rounded-2xl border p-4 ${
+                      className={`rounded-none border p-4 ${
                         darkMode ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-slate-50"
                       }`}
                     >
@@ -1568,7 +1576,7 @@ function Home({ session }: HomeProps) {
                       </div>
 
                       {pdfWorkspaceFiles.length === 0 ? (
-                        <div className={`mt-4 rounded-2xl border border-dashed px-4 py-6 text-center text-xs ${darkMode ? "border-slate-800 text-slate-500" : "border-slate-300 text-slate-500"}`}>
+                        <div className={`mt-4 rounded-none border border-dashed px-4 py-6 text-center text-xs ${darkMode ? "border-slate-800 text-slate-500" : "border-slate-300 text-slate-500"}`}>
                           Drop PDFs here or use Upload PDF to start building your merge list.
                         </div>
                       ) : (
@@ -1580,7 +1588,7 @@ function Home({ session }: HomeProps) {
                             return (
                               <div
                                 key={file.id}
-                                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+                                className={`flex items-center gap-3 rounded-none border px-4 py-3 transition ${
                                   isSelected
                                     ? "border-red-300 bg-red-50 dark:border-red-800/50 dark:bg-red-950/30"
                                     : darkMode
@@ -1594,7 +1602,7 @@ function Home({ session }: HomeProps) {
                                   className="flex flex-1 items-center gap-3 text-left"
                                 >
                                   <div
-                                    className={`relative h-14 w-14 overflow-hidden rounded-xl border ${
+                                    className={`relative h-14 w-14 overflow-hidden rounded-none border ${
                                       darkMode ? "border-slate-700 bg-slate-950" : "border-slate-200 bg-white"
                                     }`}
                                   >
@@ -1628,7 +1636,7 @@ function Home({ session }: HomeProps) {
                                     type="button"
                                     onClick={() => movePdfWorkspaceItem(file.id, "up")}
                                     disabled={index === 0}
-                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-transparent text-slate-400 transition hover:border-slate-300 hover:text-slate-700 disabled:opacity-40 dark:hover:border-slate-700 dark:hover:text-slate-200"
+                                    className="flex h-8 w-8 items-center justify-center rounded-none border border-transparent text-slate-400 transition hover:border-slate-300 hover:text-slate-700 disabled:opacity-40 dark:hover:border-slate-700 dark:hover:text-slate-200"
                                   >
                                     <ChevronUp className="h-4 w-4" />
                                   </button>
@@ -1636,14 +1644,14 @@ function Home({ session }: HomeProps) {
                                     type="button"
                                     onClick={() => movePdfWorkspaceItem(file.id, "down")}
                                     disabled={index === pdfWorkspaceFiles.length - 1}
-                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-transparent text-slate-400 transition hover:border-slate-300 hover:text-slate-700 disabled:opacity-40 dark:hover:border-slate-700 dark:hover:text-slate-200"
+                                    className="flex h-8 w-8 items-center justify-center rounded-none border border-transparent text-slate-400 transition hover:border-slate-300 hover:text-slate-700 disabled:opacity-40 dark:hover:border-slate-700 dark:hover:text-slate-200"
                                   >
                                     <ChevronDown className="h-4 w-4" />
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => removePdfWorkspaceItem(file.id)}
-                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-transparent text-slate-400 transition hover:border-red-200 hover:text-red-500 dark:hover:border-red-900/60"
+                                    className="flex h-8 w-8 items-center justify-center rounded-none border border-transparent text-slate-400 transition hover:border-red-200 hover:text-red-500 dark:hover:border-red-900/60"
                                   >
                                     <X className="h-4 w-4" />
                                   </button>
@@ -1656,7 +1664,7 @@ function Home({ session }: HomeProps) {
                     </div>
 
                     <div
-                      className={`rounded-2xl border p-4 ${
+                      className={`rounded-none border p-4 ${
                         darkMode ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white"
                       }`}
                     >
@@ -1664,7 +1672,7 @@ function Home({ session }: HomeProps) {
                         <div>
                           <h3 className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>PDF Preview</h3>
                           <div
-                            className={`mt-2 overflow-hidden rounded-2xl border ${
+                            className={`mt-2 overflow-hidden rounded-none border ${
                               darkMode ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-slate-50"
                             }`}
                           >
@@ -1690,7 +1698,7 @@ function Home({ session }: HomeProps) {
                         </div>
 
                         <div
-                          className={`rounded-2xl border px-4 py-3 text-xs font-semibold ${
+                          className={`rounded-none border px-4 py-3 text-xs font-semibold ${
                             darkMode ? "border-slate-800 text-slate-300" : "border-slate-200 text-slate-600"
                           }`}
                         >
@@ -1714,7 +1722,7 @@ function Home({ session }: HomeProps) {
                             type="text"
                             value={pdfOutputName}
                             onChange={(e) => setPdfOutputName(e.target.value)}
-                            className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                            className={`h-10 w-full rounded-none border px-3 text-sm ${
                               darkMode
                                 ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600"
                                 : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
@@ -1732,7 +1740,7 @@ function Home({ session }: HomeProps) {
                               value={pdfEditText}
                               onChange={(e) => setPdfEditText(e.target.value)}
                               placeholder="Type the note to add"
-                              className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                              className={`h-10 w-full rounded-none border px-3 text-sm ${
                                 darkMode
                                   ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600"
                                   : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
@@ -1754,7 +1762,7 @@ function Home({ session }: HomeProps) {
                                   const next = Number(e.target.value);
                                   setPdfEditPage(Number.isFinite(next) && next > 0 ? next : 1);
                                 }}
-                                className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                className={`h-10 w-full rounded-none border px-3 text-sm ${
                                   darkMode
                                     ? "border-slate-700 bg-slate-950 text-slate-100"
                                     : "border-slate-300 bg-white text-slate-900"
@@ -1773,7 +1781,7 @@ function Home({ session }: HomeProps) {
                                   const next = Number(e.target.value);
                                   setPdfEditFontSize(Number.isFinite(next) && next > 0 ? next : 18);
                                 }}
-                                className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                className={`h-10 w-full rounded-none border px-3 text-sm ${
                                   darkMode
                                     ? "border-slate-700 bg-slate-950 text-slate-100"
                                     : "border-slate-300 bg-white text-slate-900"
@@ -1793,7 +1801,7 @@ function Home({ session }: HomeProps) {
                                   const next = Number(e.target.value);
                                   setPdfEditX(Number.isFinite(next) ? next : 0);
                                 }}
-                                className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                className={`h-10 w-full rounded-none border px-3 text-sm ${
                                   darkMode
                                     ? "border-slate-700 bg-slate-950 text-slate-100"
                                     : "border-slate-300 bg-white text-slate-900"
@@ -1813,7 +1821,7 @@ function Home({ session }: HomeProps) {
                                   const next = Number(e.target.value);
                                   setPdfEditY(Number.isFinite(next) ? next : 0);
                                 }}
-                                className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                                className={`h-10 w-full rounded-none border px-3 text-sm ${
                                   darkMode
                                     ? "border-slate-700 bg-slate-950 text-slate-100"
                                     : "border-slate-300 bg-white text-slate-900"
@@ -1833,7 +1841,7 @@ function Home({ session }: HomeProps) {
                               value={pdfDetachPages}
                               onChange={(e) => setPdfDetachPages(e.target.value)}
                               placeholder="e.g. 1-3,5"
-                              className={`h-10 w-full rounded-xl border px-3 text-sm ${
+                              className={`h-10 w-full rounded-none border px-3 text-sm ${
                                 darkMode
                                   ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600"
                                   : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
@@ -1843,7 +1851,7 @@ function Home({ session }: HomeProps) {
                         </div>
 
                         {pdfOutputBytes && (
-                          <div className={`rounded-2xl border px-4 py-3 text-xs ${darkMode ? "border-emerald-900/40 bg-emerald-950/20 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                          <div className={`rounded-none border px-4 py-3 text-xs ${darkMode ? "border-emerald-900/40 bg-emerald-950/20 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
                             <div className="flex items-center justify-between gap-3">
                               <div>
                                 <p className="text-[10px] font-black uppercase tracking-widest">Output ready</p>
@@ -1852,7 +1860,7 @@ function Home({ session }: HomeProps) {
                               <button
                                 type="button"
                                 onClick={handlePdfOutputDownload}
-                                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-emerald-700"
+                                className="flex items-center gap-2 rounded-none bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-emerald-700"
                               >
                                 <Download className="h-3.5 w-3.5" />
                                 Download
@@ -1882,7 +1890,7 @@ function Home({ session }: HomeProps) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_1fr]">
-                  <section className={`rounded-2xl border p-5 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                  <section className={`rounded-none border p-5 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
                     <div className="space-y-4">
                       <div>
                         <label className={`mb-1 block text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
@@ -1891,7 +1899,7 @@ function Home({ session }: HomeProps) {
                         <select
                           value={stickerType}
                           onChange={(e) => handleStickerTypeChange(e.target.value as StickerType)}
-                          className={`h-11 w-full rounded-xl border px-3 text-sm ${
+                          className={`h-11 w-full rounded-none border px-3 text-sm ${
                             darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"
                           }`}
                         >
@@ -1930,14 +1938,14 @@ function Home({ session }: HomeProps) {
                                   handleStickerFieldValueChange(field.key, e.target.value);
                                 }
                               }}
-                              className={`h-11 w-full rounded-xl border px-3 text-sm transition-all outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                              className={`h-11 w-full rounded-none border px-3 text-sm transition-all outline-none focus:ring-2 focus:ring-emerald-700/20 ${
                                 isFixed
                                   ? darkMode 
                                     ? "border-slate-800 bg-slate-900/50 text-slate-500 cursor-not-allowed" 
                                     : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
                                   : darkMode
-                                    ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500 focus:border-blue-500"
-                                    : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-600"
+                                    ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500 focus:border-emerald-600"
+                                    : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-700"
                               }`}
                             />
                           </div>
@@ -1950,7 +1958,7 @@ function Home({ session }: HomeProps) {
                           type="button"
                           onClick={() => void generateStickerPreview()}
                           disabled={generatingSticker}
-                          className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 cursor-pointer"
+                          className="w-full rounded-none bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60 cursor-pointer"
                         >
                           {generatingSticker ? "Generating..." : "Generate Preview"}
                         </button>
@@ -1960,7 +1968,7 @@ function Home({ session }: HomeProps) {
                             type="button"
                             onClick={downloadGeneratedSticker}
                             disabled={!generatedStickerPreview}
-                            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer ${
+                            className={`rounded-none px-4 py-2.5 text-sm font-semibold transition cursor-pointer ${
                               generatedStickerPreview
                                 ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/10"
                                 : darkMode
@@ -1974,7 +1982,7 @@ function Home({ session }: HomeProps) {
                             type="button"
                             onClick={downloadGeneratedStickerAsPDF}
                             disabled={!generatedStickerPreview}
-                            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer ${
+                            className={`rounded-none px-4 py-2.5 text-sm font-semibold transition cursor-pointer ${
                               generatedStickerPreview
                                 ? "bg-rose-600 text-white hover:bg-rose-700 shadow-md shadow-rose-600/10"
                                 : darkMode
@@ -1994,7 +2002,7 @@ function Home({ session }: HomeProps) {
                       <div className="space-y-4">
                         <div
                           style={{ containerType: "inline-size" }}
-                          className={`relative overflow-hidden rounded-2xl border ${darkMode ? "border-slate-800 bg-slate-900 shadow-slate-950/40" : "border-slate-200 bg-white shadow-sm"}`}
+                          className={`relative overflow-hidden rounded-none border ${darkMode ? "border-slate-800 bg-slate-900 shadow-slate-950/40" : "border-slate-200 bg-white shadow-sm"}`}
                         >
                           <img 
                             src={currentStickerTemplate.templatePath} 
@@ -2003,8 +2011,8 @@ function Home({ session }: HomeProps) {
                             draggable={false} 
                           />
                         </div>
-                        <div className="text-center py-5 px-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 shadow-sm">
-                          <p className="text-base font-black tracking-tight text-blue-600 dark:text-blue-400">
+                        <div className="text-center py-5 px-4 rounded-none bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100/50 dark:border-emerald-900/20 shadow-sm">
+                          <p className="text-base font-black tracking-tight text-emerald-700 dark:text-emerald-400">
                             {stickerType === "pochi-la-biashara" || stickerType === "lipa-na-mpesa"
                               ? "Type the number and Generate" 
                               : "Type the details and Generate"}
@@ -2012,15 +2020,15 @@ function Home({ session }: HomeProps) {
                         </div>
                       </div>
                     ) : (
-                      <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl bg-white dark:bg-slate-900">
+                      <div className="relative overflow-hidden rounded-none border border-slate-200 dark:border-slate-800 shadow-xl bg-white dark:bg-slate-900">
                         <img 
                           src={generatedStickerPreview} 
                           alt="Customized M-Pesa Sticker Preview" 
-                          className="w-full h-auto select-none rounded-2xl animate-in fade-in duration-300" 
+                          className="w-full h-auto select-none rounded-none animate-in fade-in duration-300" 
                           draggable={false} 
                         />
                         {/* Premium Floating customized badge */}
-                        <div className="absolute top-4 right-4 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 border border-emerald-400/30 animate-pulse">
+                        <div className="absolute top-4 right-4 flex items-center gap-1.5 rounded-none px-3 py-1 text-xs font-bold bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 border border-emerald-400/30 animate-pulse">
                           <Check className="h-3.5 w-3.5" />
                           <span>Customized Preview Ready</span>
                         </div>
@@ -2029,7 +2037,7 @@ function Home({ session }: HomeProps) {
 
                     {stickerError && (
                       <div
-                        className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+                        className={`rounded-none border px-4 py-3 text-sm font-medium ${
                           darkMode ? "border-red-900 bg-red-950/30 text-red-300" : "border-red-200 bg-red-50 text-red-700"
                         }`}
                       >
@@ -2042,7 +2050,7 @@ function Home({ session }: HomeProps) {
             )}
 
             {activeTab === "students" && (
-              <div className={`rounded-2xl border p-6 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+              <div className={`rounded-none border p-6 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
                 <h1 className={`text-2xl font-semibold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Students Portal</h1>
                 <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
                   Students portal content will appear here.
@@ -2054,9 +2062,9 @@ function Home({ session }: HomeProps) {
       </div>
 
       {uploadSuccessMessage && (
-        <div className={`fixed bottom-6 right-6 z-50 w-full max-w-sm rounded-2xl border p-4 shadow-2xl animate-in slide-in-from-right-10 duration-500 ${darkMode ? "border-slate-800 bg-slate-900 shadow-slate-950/50" : "border-emerald-100 bg-white shadow-emerald-200/50"}`}>
+        <div className={`fixed bottom-6 right-6 z-50 w-full max-w-sm rounded-none border p-4 shadow-2xl animate-in slide-in-from-right-10 duration-500 ${darkMode ? "border-slate-800 bg-slate-900 shadow-slate-950/50" : "border-emerald-100 bg-white shadow-emerald-200/50"}`}>
           <div className="flex gap-4">
-            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${darkMode ? "bg-emerald-950/30" : "bg-emerald-50"}`}>
+            <div className={`h-10 w-10 rounded-none flex items-center justify-center shrink-0 ${darkMode ? "bg-emerald-950/30" : "bg-emerald-50"}`}>
               <CheckCircle2 className="h-6 w-6 text-emerald-600" />
             </div>
             <div className="flex-1">
@@ -2082,7 +2090,7 @@ function Home({ session }: HomeProps) {
 
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+          <div className={`w-full max-w-md rounded-none border p-6 shadow-2xl ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
             <h3 className={`text-lg font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Confirm deletion</h3>
             <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-600"}`}>
               Are you sure you want to delete <span className="font-semibold">"{pendingDelete.name}"</span>?
@@ -2093,7 +2101,7 @@ function Home({ session }: HomeProps) {
                 type="button"
                 onClick={() => setPendingDelete(null)}
                 disabled={deleting}
-                className={`rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50 ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+                className={`rounded-none border px-4 py-2 text-sm font-bold disabled:opacity-50 ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
               >
                 Cancel
               </button>
@@ -2101,7 +2109,7 @@ function Home({ session }: HomeProps) {
                 type="button"
                 onClick={() => void handleDelete(pendingDelete)}
                 disabled={deleting}
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-none bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Delete file"}
               </button>
@@ -2115,8 +2123,8 @@ function Home({ session }: HomeProps) {
           <div className="relative w-full max-w-6xl h-full flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
             <div className={`flex items-center justify-between p-5 rounded-t-[32px] border-b ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
               <div className="flex items-center gap-4">
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center border ${darkMode ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-100"}`}>
-                  {isPdfFile(previewFile.name) ? <FileText className="h-5 w-5 text-red-600" /> : <Eye className="h-5 w-5 text-blue-600" />}
+                <div className={`h-10 w-10 rounded-none flex items-center justify-center border ${darkMode ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-100"}`}>
+                  {isPdfFile(previewFile.name) ? <FileText className="h-5 w-5 text-red-600" /> : <Eye className="h-5 w-5 text-emerald-700" />}
                 </div>
                 <div>
                     <h3 className={`font-bold text-sm truncate max-w-md ${darkMode ? "text-slate-100" : "text-slate-900"}`}>{previewFile.name}</h3>
@@ -2125,7 +2133,7 @@ function Home({ session }: HomeProps) {
               </div>
               <button 
                 onClick={() => setPreviewFile(null)}
-                className={`h-10 w-10 flex items-center justify-center rounded-xl transition-all border border-transparent ${darkMode ? "hover:bg-slate-800 hover:border-slate-700 text-slate-400" : "hover:bg-slate-100 hover:border-slate-200 text-slate-500"}`}
+                className={`h-10 w-10 flex items-center justify-center rounded-none transition-all border border-transparent ${darkMode ? "hover:bg-slate-800 hover:border-slate-700 text-slate-400" : "hover:bg-slate-100 hover:border-slate-200 text-slate-500"}`}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2139,7 +2147,7 @@ function Home({ session }: HomeProps) {
                 />
               ) : (
                 <div className={`w-full h-full flex items-center justify-center p-8 ${darkMode ? "bg-slate-950" : "bg-slate-50"}`}>
-                  <img src={previewFile.public_url} alt="" className="max-w-full max-h-full object-contain shadow-xl rounded-lg" />
+                  <img src={previewFile.public_url} alt="" className="max-w-full max-h-full object-contain shadow-xl rounded-none" />
                 </div>
               )}
             </div>
@@ -2148,12 +2156,12 @@ function Home({ session }: HomeProps) {
       )}
 
       {uiUpdateAvailable && (
-        <div className={`fixed bottom-6 left-6 z-50 w-full max-w-md rounded-2xl border p-4 shadow-2xl animate-in slide-in-from-left-10 duration-500 ${
-          darkMode ? "border-slate-800 bg-slate-900 shadow-slate-950/50" : "border-blue-100 bg-white shadow-blue-100/30"
+        <div className={`fixed bottom-6 left-6 z-50 w-full max-w-md rounded-none border p-4 shadow-2xl animate-in slide-in-from-left-10 duration-500 ${
+          darkMode ? "border-slate-800 bg-slate-900 shadow-slate-950/50" : "border-emerald-100 bg-white shadow-emerald-100/30"
         }`}>
           <div className="flex gap-4">
-            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${darkMode ? "bg-blue-950/30" : "bg-blue-50"}`}>
-              <Sparkles className="h-6 w-6 text-blue-600 animate-pulse" />
+            <div className={`h-10 w-10 rounded-none flex items-center justify-center shrink-0 ${darkMode ? "bg-emerald-950/30" : "bg-emerald-50"}`}>
+              <Sparkles className="h-6 w-6 text-emerald-700 animate-pulse" />
             </div>
             <div className="flex-1">
               <p className={`text-sm font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>System Update Available</p>
@@ -2164,14 +2172,14 @@ function Home({ session }: HomeProps) {
                 <button
                   type="button"
                   onClick={() => window.location.reload()}
-                  className="rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                  className="rounded-none bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
                 >
                   Reload Now
                 </button>
                 <button
                   type="button"
                   onClick={() => setUiUpdateAvailable(false)}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                  className={`rounded-none border px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
                     darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
