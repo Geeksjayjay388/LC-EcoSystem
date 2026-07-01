@@ -55,4 +55,32 @@ on public.lc_files for delete
 to authenticated
 using (auth.uid() = owner_id);
 
+create table if not exists public.lc_texts (
+  id uuid default gen_random_uuid() primary key,
+  content text not null,
+  owner_id uuid references auth.users not null default auth.uid(),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.lc_texts enable row level security;
+
+drop policy if exists "Authenticated users can view texts" on public.lc_texts;
+drop policy if exists "Authenticated users can insert texts" on public.lc_texts;
+drop policy if exists "Users can delete their own texts" on public.lc_texts;
+
+create policy "Authenticated users can view texts"
+on public.lc_texts for select
+to authenticated
+using (true);
+
+create policy "Authenticated users can insert texts"
+on public.lc_texts for insert
+to authenticated
+with check (auth.uid() = owner_id);
+
+create policy "Users can delete their own texts"
+on public.lc_texts for delete
+to authenticated
+using (auth.uid() = owner_id);
+
 select pg_notify('pgrst', 'reload schema');

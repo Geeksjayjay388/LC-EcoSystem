@@ -50,6 +50,13 @@ type EcosystemFile = {
   created_at: string;
 };
 
+type SavedText = {
+  id: string;
+  content: string;
+  owner_id: string;
+  created_at: string;
+};
+
 type WorkspacePdf = {
   id: string;
   name: string;
@@ -287,7 +294,14 @@ function Home({ session }: HomeProps) {
       return "";
     }
   });
-  const [textShareCopied, setTextShareCopied] = useState(false);
+
+
+  const [savedTexts, setSavedTexts] = useState<SavedText[]>([]);
+  const [loadingTexts, setLoadingTexts] = useState(true);
+  const [savingText, setSavingText] = useState(false);
+  const [textSearchTerm, setTextSearchTerm] = useState("");
+  const [pendingDeleteText, setPendingDeleteText] = useState<SavedText | null>(null);
+  const [deletingText, setDeletingText] = useState(false);
 
   // Auto-Refresh & UI Update States
   const [dataRefreshInterval, setDataRefreshInterval] = useState<number>(() => {
@@ -311,19 +325,26 @@ function Home({ session }: HomeProps) {
   const fetchFilesSilent = async () => {
     setIsDataRefreshing(true);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("lc_files")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const [filesRes, textsRes] = await Promise.all([
+        supabase.from("lc_files").select("*").order("created_at", { ascending: false }),
+        supabase.from("lc_texts").select("*").order("created_at", { ascending: false })
+      ]);
 
-      if (fetchError) {
-        console.error("Silent data fetch error:", fetchError.message);
+      if (filesRes.error) {
+        console.error("Silent data fetch error:", filesRes.error.message);
       } else {
-        setFiles(data ?? []);
-        setLastSyncTime(new Date());
+        setFiles(filesRes.data ?? []);
       }
+
+      if (textsRes.error) {
+        console.error("Silent text fetch error:", textsRes.error.message);
+      } else {
+        setSavedTexts(textsRes.data ?? []);
+      }
+
+      setLastSyncTime(new Date());
     } catch (err) {
-      console.error("Failed silently to fetch files:", err);
+      console.error("Failed silently to fetch files or texts:", err);
     } finally {
       setIsDataRefreshing(false);
     }
@@ -394,8 +415,7 @@ function Home({ session }: HomeProps) {
     if (!textShareContent.trim()) return;
     const ok = await copyToClipboard(textShareContent.trim());
     if (ok) {
-      setTextShareCopied(true);
-      setTimeout(() => setTextShareCopied(false), 3000);
+      setUploadSuccessMessage("Text copied to clipboard!");
     }
   };
 
@@ -405,9 +425,49 @@ function Home({ session }: HomeProps) {
     const shareUrl = `${window.location.origin}/home#text=${encoded}`;
     const ok = await copyToClipboard(shareUrl);
     if (ok) {
-      setTextShareCopied(true);
-      setTimeout(() => setTextShareCopied(false), 3000);
+      setUploadSuccessMessage("Share link copied to clipboard!");
     }
+  };
+
+  const handleSaveText = async () => {
+    if (!textShareContent.trim()) return;
+
+    setSavingText(true);
+    setError(null);
+
+    const { error: insertError } = await supabase.from("lc_texts").insert({
+      content: textShareContent.trim(),
+    });
+
+    if (insertError) {
+      setError(`Failed to save text: ${insertError.message}`);
+    } else {
+      setUploadSuccessMessage("Successfully saved text to vault.");
+      setTextShareContent("");
+      await fetchTexts();
+    }
+    setSavingText(false);
+  };
+
+  const handleDeleteText = async () => {
+    if (!pendingDeleteText) return;
+
+    setDeletingText(true);
+    setError(null);
+
+    const { error: deleteError } = await supabase
+      .from("lc_texts")
+      .delete()
+      .eq("id", pendingDeleteText.id);
+
+    if (deleteError) {
+      setError(`Failed to delete text: ${deleteError.message}`);
+    } else {
+      setUploadSuccessMessage("Successfully deleted text from vault.");
+      setPendingDeleteText(null);
+      await fetchTexts();
+    }
+    setDeletingText(false);
   };
 
   useEffect(() => {
@@ -418,8 +478,7 @@ function Home({ session }: HomeProps) {
       const text = decodeURIComponent(escape(atob(encoded)));
       copyToClipboard(text).then((ok) => {
         if (ok) {
-          setTextShareCopied(true);
-          setTimeout(() => setTextShareCopied(false), 4000);
+          setUploadSuccessMessage("Text from share link copied to clipboard!");
         }
       });
       window.history.replaceState(null, "", "/home");
@@ -489,6 +548,7 @@ function Home({ session }: HomeProps) {
   }, []);
 
   const fetchFiles = async () => {
+    setLoadingFiles(true);
     const { data, error: fetchError } = await supabase
       .from("lc_files")
       .select("*")
@@ -503,23 +563,45 @@ function Home({ session }: HomeProps) {
     setLoadingFiles(false);
   };
 
+  const fetchTexts = async () => {
+    setLoadingTexts(true);
+    const { data, error: fetchError } = await supabase
+      .from("lc_texts")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (fetchError) {
+      console.error("Fetch texts error:", fetchError.message);
+    } else {
+      setSavedTexts(data ?? []);
+    }
+    setLoadingTexts(false);
+  };
+
   useEffect(() => {
     let active = true;
 
-    void supabase
-      .from("lc_files")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .then(({ data, error: fetchError }) => {
-        if (!active) return;
-        if (fetchError) {
-          setError(fetchError.message);
-        } else {
-          setError(null);
-          setFiles(data ?? []);
-        }
-        setLoadingFiles(false);
-      });
+    Promise.all([
+      supabase.from("lc_files").select("*").order("created_at", { ascending: false }),
+      supabase.from("lc_texts").select("*").order("created_at", { ascending: false })
+    ]).then(([filesRes, textsRes]) => {
+      if (!active) return;
+
+      if (filesRes.error) {
+        setError(filesRes.error.message);
+      } else {
+        setError(null);
+        setFiles(filesRes.data ?? []);
+      }
+      setLoadingFiles(false);
+
+      if (textsRes.error) {
+        console.error("Fetch texts error:", textsRes.error.message);
+      } else {
+        setSavedTexts(textsRes.data ?? []);
+      }
+      setLoadingTexts(false);
+    });
 
     return () => {
       active = false;
@@ -874,6 +956,10 @@ function Home({ session }: HomeProps) {
   const filteredFiles = useMemo(() => {
     return files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [files, searchTerm]);
+
+  const filteredTexts = useMemo(() => {
+    return savedTexts.filter(t => t.content.toLowerCase().includes(textSearchTerm.toLowerCase()));
+  }, [savedTexts, textSearchTerm]);
 
   const currentStickerTemplate = STICKER_TEMPLATES[stickerType];
   const currentStickerStyles = STICKER_FIELD_STYLE_DEFAULTS[stickerType] || {};
@@ -2120,11 +2206,11 @@ function Home({ session }: HomeProps) {
                     Text Share
                   </h1>
                   <p className={`mt-1 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-                    Write your text and share it. Anyone with the link gets it copied directly to their clipboard.
+                    Write your text and share it, or save it permanently in the central vault for easy retrieval later.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_1fr]">
                   <section className={`rounded-none border p-5 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
                     <label className={`mb-2 block text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
                       Your text
@@ -2134,7 +2220,7 @@ function Home({ session }: HomeProps) {
                       onChange={(e) => setTextShareContent(e.target.value)}
                       placeholder="Type or paste something here..."
                       rows={12}
-                      className={`w-full rounded-none border px-4 py-3 text-sm leading-relaxed ${
+                      className={`w-full rounded-none border px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-emerald-600/50 focus:border-emerald-600/50 ${
                         darkMode
                           ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600"
                           : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
@@ -2143,54 +2229,186 @@ function Home({ session }: HomeProps) {
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button
                         type="button"
+                        onClick={() => void handleSaveText()}
+                        disabled={savingText || !textShareContent.trim()}
+                        className="flex items-center gap-2 rounded-none bg-emerald-700 hover:bg-emerald-800 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition disabled:opacity-40"
+                      >
+                        {savingText ? <Loader className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Save to Vault
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => void handleTextShareCopy()}
                         disabled={!textShareContent.trim()}
-                        className="flex items-center gap-2 rounded-none bg-emerald-700 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-800 disabled:opacity-40"
+                        className={`flex items-center gap-2 rounded-none border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition disabled:opacity-40 ${
+                          darkMode
+                            ? "border-slate-700 text-slate-200 hover:bg-slate-800 hover:border-slate-600"
+                            : "border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+                        }`}
                       >
                         <Check className="h-4 w-4" />
                         Copy Text
                       </button>
-                       <button
-                         type="button"
-                         onClick={() => void handleTextShare()}
-                         disabled={!textShareContent.trim()}
-                         className={`flex items-center gap-2 rounded-none border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition disabled:opacity-40 ${
-                           darkMode
-                             ? "border-slate-700 text-slate-200 hover:bg-slate-800"
-                             : "border-slate-300 text-slate-700 hover:bg-slate-50"
-                         }`}
-                       >
+                      <button
+                        type="button"
+                        onClick={() => void handleTextShare()}
+                        disabled={!textShareContent.trim()}
+                        className={`flex items-center gap-2 rounded-none border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition disabled:opacity-40 ${
+                          darkMode
+                            ? "border-slate-700 text-slate-200 hover:bg-slate-800 hover:border-slate-600"
+                            : "border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+                        }`}
+                      >
+                        <Type className="h-4 w-4" />
                         Share Link
                       </button>
                     </div>
                   </section>
 
-                  <section className={`rounded-none border p-5 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
-                    <h2 className={`text-xs font-black uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-                      How it works
-                    </h2>
-                    <ul className={`mt-3 space-y-3 text-sm ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                      <li className="flex gap-3">
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-none border border-emerald-700 text-[10px] font-black text-emerald-700">1</span>
-                        Write or paste text in the editor.
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-none border border-emerald-700 text-[10px] font-black text-emerald-700">2</span>
-                        Click <strong>Share Link</strong> to copy a link to your clipboard.
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-none border border-emerald-700 text-[10px] font-black text-emerald-700">3</span>
-                        Send the link. When they open it, text copies automatically.
-                      </li>
-                    </ul>
-
-                    {textShareCopied && (
-                      <div className={`mt-5 animate-in fade-in slide-in-from-top-2 duration-200 rounded-none border px-4 py-3 text-xs font-bold ${
-                        darkMode ? "border-emerald-900 bg-emerald-950/30 text-emerald-300" : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  <section className={`rounded-none border p-5 flex flex-col ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className={`text-xs font-black uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                        Saved Text Vault
+                      </h2>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-none border ${
+                        darkMode ? "border-slate-800 bg-slate-950 text-slate-400" : "border-slate-200 bg-slate-50 text-slate-500"
                       }`}>
-                        Copied to clipboard!
-                      </div>
-                    )}
+                        {filteredTexts.length} Snippets
+                      </span>
+                    </div>
+
+                    {/* Search Bar for texts */}
+                    <div className={`relative mb-4 border ${darkMode ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white"} rounded-none`}>
+                      <Search className={`absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${
+                        darkMode ? "text-slate-500" : "text-slate-400"
+                      }`} />
+                      <input
+                        type="text"
+                        placeholder="Search saved texts..."
+                        value={textSearchTerm}
+                        onChange={(e) => setTextSearchTerm(e.target.value)}
+                        className={`w-full bg-transparent py-2.5 pl-9 pr-9 text-xs focus:outline-none focus:ring-0 focus:border-none ${
+                          darkMode ? "text-slate-100 placeholder:text-slate-600" : "text-slate-900 placeholder:text-slate-400"
+                        }`}
+                      />
+                      {textSearchTerm && (
+                        <button
+                          onClick={() => setTextSearchTerm("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* List of saved texts */}
+                    <div className="space-y-4 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">
+                      {loadingTexts ? (
+                        <div className="space-y-3 py-2">
+                          {[1, 2, 3].map((i) => (
+                            <div key={i} className={`h-24 animate-pulse rounded-none border ${
+                              darkMode ? "border-slate-800 bg-slate-950/40" : "border-slate-200 bg-slate-50"
+                            }`} />
+                          ))}
+                        </div>
+                      ) : filteredTexts.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Type className={`mx-auto h-8 w-8 mb-2 stroke-1 ${darkMode ? "text-slate-700" : "text-slate-300"}`} />
+                          <p className={`text-xs font-semibold ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                            {textSearchTerm ? "No matching texts found" : "No saved texts in the vault"}
+                          </p>
+                        </div>
+                      ) : (
+                        filteredTexts.map((txt) => {
+                          const isOwner = txt.owner_id === session.user.id;
+                          return (
+                            <div
+                              key={txt.id}
+                              className={`group relative rounded-none border p-4 transition-all hover:border-emerald-600/30 ${
+                                darkMode ? "border-slate-800 bg-slate-950/40 hover:bg-slate-950/80" : "border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  <span>{new Date(txt.created_at).toLocaleString()}</span>
+                                </div>
+                                {isOwner && (
+                                  <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-none font-black text-[9px] tracking-widest uppercase">
+                                    Me
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Monospace Code Preview Box */}
+                              <div className={`p-3 font-mono text-xs whitespace-pre-wrap max-h-36 overflow-y-auto border scrollbar-thin ${
+                                darkMode 
+                                  ? "bg-slate-950 border-slate-900 text-slate-300" 
+                                  : "bg-white border-slate-200 text-slate-700"
+                              }`}>
+                                {txt.content}
+                              </div>
+
+                              <div className="mt-3 flex gap-2 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const ok = await copyToClipboard(txt.content);
+                                    if (ok) {
+                                      setUploadSuccessMessage("Text copied to clipboard!");
+                                    }
+                                  }}
+                                  className={`flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-none border transition active:scale-95 cursor-pointer ${
+                                    darkMode
+                                      ? "border-slate-800 text-slate-300 bg-slate-900 hover:border-emerald-700 hover:text-emerald-400"
+                                      : "border-slate-200 text-slate-700 bg-white hover:border-emerald-200 hover:text-emerald-700"
+                                  }`}
+                                  title="Copy full text"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Copy</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const encoded = btoa(unescape(encodeURIComponent(txt.content)));
+                                    const shareUrl = `${window.location.origin}/home#text=${encoded}`;
+                                    const ok = await copyToClipboard(shareUrl);
+                                    if (ok) {
+                                      setUploadSuccessMessage("Share link copied to clipboard!");
+                                    }
+                                  }}
+                                  className={`flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-none border transition active:scale-95 cursor-pointer ${
+                                    darkMode
+                                      ? "border-slate-800 text-slate-300 bg-slate-900 hover:border-emerald-700 hover:text-emerald-400"
+                                      : "border-slate-200 text-slate-700 bg-white hover:border-emerald-200 hover:text-emerald-700"
+                                  }`}
+                                  title="Copy share link"
+                                >
+                                  <Type className="h-3.5 w-3.5" />
+                                  <span>Share</span>
+                                </button>
+                                {isOwner && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingDeleteText(txt)}
+                                    className={`flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-none border transition active:scale-95 cursor-pointer ${
+                                      darkMode
+                                        ? "border-slate-800 text-slate-450 bg-slate-900 hover:border-rose-950 hover:text-rose-500"
+                                        : "border-slate-200 text-slate-400 bg-white hover:border-rose-200 hover:text-rose-600"
+                                    }`}
+                                    title="Delete snippet"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <span>Delete</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </section>
                 </div>
               </div>
@@ -2259,6 +2477,41 @@ function Home({ session }: HomeProps) {
                 className="rounded-none bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Delete file"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDeleteText && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-none border p-6 shadow-2xl ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+            <h3 className={`text-lg font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Confirm deletion</h3>
+            <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-600"}`}>
+              Are you sure you want to delete this saved text snippet?
+              This action cannot be undone.
+            </p>
+            <div className={`mt-3 p-3 font-mono text-[10px] whitespace-pre-wrap max-h-24 overflow-y-auto border ${
+              darkMode ? "bg-slate-950 border-slate-900 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-600"
+            }`}>
+              {pendingDeleteText.content}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteText(null)}
+                disabled={deletingText}
+                className={`rounded-none border px-4 py-2 text-sm font-bold disabled:opacity-50 ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteText()}
+                disabled={deletingText}
+                className="rounded-none bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deletingText ? "Deleting..." : "Delete text"}
               </button>
             </div>
           </div>
