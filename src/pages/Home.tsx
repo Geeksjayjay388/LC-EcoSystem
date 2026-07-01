@@ -32,7 +32,8 @@ import {
   Settings,
   Clock,
   Sparkles,
-  Info
+  Info,
+  Type
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -56,7 +57,7 @@ type WorkspacePdf = {
   pageCount: number;
 };
 
-type SidebarTab = "files" | "tools" | "stickers" | "students";
+type SidebarTab = "files" | "tools" | "stickers" | "students" | "text";
 type StickerType = "lipa-na-mpesa" | "paybill" | "pochi-la-biashara";
 
 type StickerField = {
@@ -274,6 +275,20 @@ function Home({ session }: HomeProps) {
   const [pdfEditFontSize, setPdfEditFontSize] = useState(18);
   const [pdfDetachPages, setPdfDetachPages] = useState("1");
 
+  const [textShareContent, setTextShareContent] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    const hash = window.location.hash;
+    if (!hash.startsWith("#text=")) return "";
+    try {
+      const encoded = hash.slice(6);
+      return decodeURIComponent(escape(atob(encoded)));
+    } catch {
+      window.history.replaceState(null, "", "/home");
+      return "";
+    }
+  });
+  const [textShareCopied, setTextShareCopied] = useState(false);
+
   // Auto-Refresh & UI Update States
   const [dataRefreshInterval, setDataRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem("ecosystem-data-refresh-interval");
@@ -365,6 +380,53 @@ function Home({ session }: HomeProps) {
     setUiCheckInterval(val);
     localStorage.setItem("ecosystem-ui-check-interval", String(val));
   };
+
+  const copyToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleTextShareCopy = async () => {
+    if (!textShareContent.trim()) return;
+    const ok = await copyToClipboard(textShareContent.trim());
+    if (ok) {
+      setTextShareCopied(true);
+      setTimeout(() => setTextShareCopied(false), 3000);
+    }
+  };
+
+  const handleTextShare = async () => {
+    if (!textShareContent.trim()) return;
+    const encoded = btoa(unescape(encodeURIComponent(textShareContent.trim())));
+    const shareUrl = `${window.location.origin}/home#text=${encoded}`;
+    const ok = await copyToClipboard(shareUrl);
+    if (ok) {
+      setTextShareCopied(true);
+      setTimeout(() => setTextShareCopied(false), 3000);
+    }
+  };
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith("#text=")) return;
+    const encoded = hash.slice(6);
+    try {
+      const text = decodeURIComponent(escape(atob(encoded)));
+      copyToClipboard(text).then((ok) => {
+        if (ok) {
+          setTextShareCopied(true);
+          setTimeout(() => setTextShareCopied(false), 4000);
+        }
+      });
+      window.history.replaceState(null, "", "/home");
+    } catch {
+      window.history.replaceState(null, "", "/home");
+    }
+  }, []);
 
   // Data polling interval
   useEffect(() => {
@@ -940,6 +1002,7 @@ function Home({ session }: HomeProps) {
     { key: "files", label: "Shared Files", icon: FolderOpen },
     { key: "tools", label: "Tools", icon: Layers },
     { key: "stickers", label: "Stickers", icon: Tag },
+    { key: "text", label: "Text", icon: Type },
     { key: "students", label: "Students Portal", icon: GraduationCap },
   ] as const;
 
@@ -1104,11 +1167,12 @@ function Home({ session }: HomeProps) {
                   {activeTab === "files" && <FolderOpen className="h-5 w-5" />}
                   {activeTab === "tools" && <Layers className="h-5 w-5" />}
                   {activeTab === "stickers" && <Tag className="h-5 w-5" />}
+                  {activeTab === "text" && <Type className="h-5 w-5" />}
                   {activeTab === "students" && <GraduationCap className="h-5 w-5" />}
                 </div>
                 <div>
                   <h1 className={`text-base font-extrabold tracking-tight capitalize ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
-                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : "Students Administration"}
+                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : activeTab === "text" ? "Text Share" : "Students Administration"}
                   </h1>
                   <p className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
                     Lanet Computers Ecosystem Portal
@@ -2042,6 +2106,89 @@ function Home({ session }: HomeProps) {
                         }`}
                       >
                         {stickerError}
+                      </div>
+                    )}
+                  </section>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "text" && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className={`text-2xl font-semibold tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                    Text Share
+                  </h1>
+                  <p className={`mt-1 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Write your text and share it. Anyone with the link gets it copied directly to their clipboard.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
+                  <section className={`rounded-none border p-5 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                    <label className={`mb-2 block text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                      Your text
+                    </label>
+                    <textarea
+                      value={textShareContent}
+                      onChange={(e) => setTextShareContent(e.target.value)}
+                      placeholder="Type or paste something here..."
+                      rows={12}
+                      className={`w-full rounded-none border px-4 py-3 text-sm leading-relaxed ${
+                        darkMode
+                          ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600"
+                          : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                      }`}
+                    />
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void handleTextShareCopy()}
+                        disabled={!textShareContent.trim()}
+                        className="flex items-center gap-2 rounded-none bg-emerald-700 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-800 disabled:opacity-40"
+                      >
+                        <Check className="h-4 w-4" />
+                        Copy Text
+                      </button>
+                       <button
+                         type="button"
+                         onClick={() => void handleTextShare()}
+                         disabled={!textShareContent.trim()}
+                         className={`flex items-center gap-2 rounded-none border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition disabled:opacity-40 ${
+                           darkMode
+                             ? "border-slate-700 text-slate-200 hover:bg-slate-800"
+                             : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                         }`}
+                       >
+                        Share Link
+                      </button>
+                    </div>
+                  </section>
+
+                  <section className={`rounded-none border p-5 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                    <h2 className={`text-xs font-black uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                      How it works
+                    </h2>
+                    <ul className={`mt-3 space-y-3 text-sm ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                      <li className="flex gap-3">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-none border border-emerald-700 text-[10px] font-black text-emerald-700">1</span>
+                        Write or paste text in the editor.
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-none border border-emerald-700 text-[10px] font-black text-emerald-700">2</span>
+                        Click <strong>Share Link</strong> to copy a link to your clipboard.
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-none border border-emerald-700 text-[10px] font-black text-emerald-700">3</span>
+                        Send the link. When they open it, text copies automatically.
+                      </li>
+                    </ul>
+
+                    {textShareCopied && (
+                      <div className={`mt-5 animate-in fade-in slide-in-from-top-2 duration-200 rounded-none border px-4 py-3 text-xs font-bold ${
+                        darkMode ? "border-emerald-900 bg-emerald-950/30 text-emerald-300" : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      }`}>
+                        Copied to clipboard!
                       </div>
                     )}
                   </section>
