@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   FolderOpen,
   Tag,
+  GraduationCap,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -68,6 +69,16 @@ type RecordItem = {
   created_at: string;
 };
 
+type StudentItem = {
+  id: string;
+  name: string;
+  course: string;
+  fee_paid: number;
+  fee_total: number;
+  owner_id: string;
+  created_at: string;
+};
+
 type WorkspacePdf = {
   id: string;
   name: string;
@@ -75,7 +86,7 @@ type WorkspacePdf = {
   pageCount: number;
 };
 
-type SidebarTab = "files" | "tools" | "stickers" | "text" | "records";
+type SidebarTab = "files" | "tools" | "stickers" | "students" | "text" | "records";
 type StickerType = "lipa-na-mpesa" | "paybill" | "pochi-la-biashara";
 
 type StickerField = {
@@ -326,6 +337,18 @@ function Home({ session }: HomeProps) {
   const [recordCategory, setRecordCategory] = useState("KRA Pin");
   const [recordReference, setRecordReference] = useState("");
   const [recordDetails, setRecordDetails] = useState("");
+  const [students, setStudents] = useState<StudentItem[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [savingStudent, setSavingStudent] = useState(false);
+  const [deletingStudent, setDeletingStudent] = useState(false);
+  const [showStudentForm, setShowStudentForm] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<StudentItem | null>(null);
+  const [pendingDeleteStudent, setPendingDeleteStudent] = useState<StudentItem | null>(null);
+  const [studentSearchTerm, setStudentSearchTerm] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [studentCourse, setStudentCourse] = useState("");
+  const [studentFeePaid, setStudentFeePaid] = useState("");
+  const [studentFeeTotal, setStudentFeeTotal] = useState("");
 
   // Auto-Refresh & UI Update States
   const [dataRefreshInterval, setDataRefreshInterval] = useState<number>(() => {
@@ -349,10 +372,11 @@ function Home({ session }: HomeProps) {
   const fetchFilesSilent = async () => {
     setIsDataRefreshing(true);
     try {
-      const [filesRes, textsRes, recordsRes] = await Promise.all([
+      const [filesRes, textsRes, recordsRes, studentsRes] = await Promise.all([
         supabase.from("lc_files").select("*").order("created_at", { ascending: false }),
         supabase.from("lc_texts").select("*").order("created_at", { ascending: false }),
-        supabase.from("lc_records").select("*").order("created_at", { ascending: false })
+        supabase.from("lc_records").select("*").order("created_at", { ascending: false }),
+        supabase.from("lc_students").select("*").order("created_at", { ascending: false })
       ]);
 
       if (filesRes.error) {
@@ -373,9 +397,15 @@ function Home({ session }: HomeProps) {
         setRecords(recordsRes.data ?? []);
       }
 
+      if (studentsRes.error) {
+        console.error("Silent students fetch error:", studentsRes.error.message);
+      } else {
+        setStudents(studentsRes.data ?? []);
+      }
+
       setLastSyncTime(new Date());
     } catch (err) {
-      console.error("Failed silently to fetch files, texts, or records:", err);
+      console.error("Failed silently to fetch files, texts, records, or students:", err);
     } finally {
       setIsDataRefreshing(false);
     }
@@ -514,6 +544,108 @@ function Home({ session }: HomeProps) {
       setRecords(data ?? []);
     }
     setLoadingRecords(false);
+  };
+
+  const fetchStudents = async () => {
+    setLoadingStudents(true);
+    const { data, error: fetchError } = await supabase
+      .from("lc_students")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (fetchError) {
+      console.error("Fetch students error:", fetchError.message);
+    } else {
+      setStudents(data ?? []);
+    }
+    setLoadingStudents(false);
+  };
+
+  const resetStudentForm = () => {
+    setEditingStudent(null);
+    setStudentName("");
+    setStudentCourse("");
+    setStudentFeePaid("");
+    setStudentFeeTotal("");
+  };
+
+  const handleSaveStudent = async () => {
+    if (!studentName.trim() || !studentCourse.trim()) return;
+
+    const paid = Math.max(0, Number(studentFeePaid) || 0);
+    const total = Math.max(0, Number(studentFeeTotal) || 0);
+
+    setSavingStudent(true);
+    setError(null);
+
+    if (editingStudent) {
+      const { error: updateError } = await supabase
+        .from("lc_students")
+        .update({
+          name: studentName.trim(),
+          course: studentCourse.trim(),
+          fee_paid: paid,
+          fee_total: total,
+        })
+        .eq("id", editingStudent.id);
+
+      if (updateError) {
+        setError(`Failed to update student: ${updateError.message}`);
+      } else {
+        setUploadSuccessMessage("Student updated successfully.");
+        setShowStudentForm(false);
+        resetStudentForm();
+        await fetchStudents();
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from("lc_students")
+        .insert({
+          name: studentName.trim(),
+          course: studentCourse.trim(),
+          fee_paid: paid,
+          fee_total: total,
+        });
+
+      if (insertError) {
+        setError(`Failed to add student: ${insertError.message}`);
+      } else {
+        setUploadSuccessMessage("Student added successfully.");
+        setShowStudentForm(false);
+        resetStudentForm();
+        await fetchStudents();
+      }
+    }
+
+    setSavingStudent(false);
+  };
+
+  const handleEditStudent = (student: StudentItem) => {
+    setEditingStudent(student);
+    setStudentName(student.name);
+    setStudentCourse(student.course);
+    setStudentFeePaid(String(student.fee_paid ?? 0));
+    setStudentFeeTotal(String(student.fee_total ?? 0));
+    setShowStudentForm(true);
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!pendingDeleteStudent) return;
+
+    setDeletingStudent(true);
+    const { error: deleteError } = await supabase
+      .from("lc_students")
+      .delete()
+      .eq("id", pendingDeleteStudent.id);
+
+    if (deleteError) {
+      setError(`Failed to delete student: ${deleteError.message}`);
+    } else {
+      setUploadSuccessMessage("Student deleted successfully.");
+      setPendingDeleteStudent(null);
+      await fetchStudents();
+    }
+    setDeletingStudent(false);
   };
 
   const handleSaveRecord = async () => {
@@ -678,8 +810,9 @@ function Home({ session }: HomeProps) {
     Promise.all([
       supabase.from("lc_files").select("*").order("created_at", { ascending: false }),
       supabase.from("lc_texts").select("*").order("created_at", { ascending: false }),
-      supabase.from("lc_records").select("*").order("created_at", { ascending: false })
-    ]).then(([filesRes, textsRes, recordsRes]) => {
+      supabase.from("lc_records").select("*").order("created_at", { ascending: false }),
+      supabase.from("lc_students").select("*").order("created_at", { ascending: false })
+    ]).then(([filesRes, textsRes, recordsRes, studentsRes]) => {
       if (!active) return;
 
       if (filesRes.error) {
@@ -703,6 +836,13 @@ function Home({ session }: HomeProps) {
         setRecords(recordsRes.data ?? []);
       }
       setLoadingRecords(false);
+
+      if (studentsRes.error) {
+        console.error("Fetch students error:", studentsRes.error.message);
+      } else {
+        setStudents(studentsRes.data ?? []);
+      }
+      setLoadingStudents(false);
 
     });
 
@@ -1075,6 +1215,15 @@ function Home({ session }: HomeProps) {
     );
   }, [records, recordSearchTerm]);
 
+  const filteredStudents = useMemo(() => {
+    const term = studentSearchTerm.toLowerCase().trim();
+    if (!term) return students;
+    return students.filter((student) =>
+      student.name.toLowerCase().includes(term) ||
+      student.course.toLowerCase().includes(term)
+    );
+  }, [students, studentSearchTerm]);
+
   const currentStickerTemplate = STICKER_TEMPLATES[stickerType];
   const currentStickerStyles = STICKER_FIELD_STYLE_DEFAULTS[stickerType] || {};
 
@@ -1202,6 +1351,7 @@ function Home({ session }: HomeProps) {
     { key: "files", label: "Shared Files", icon: FolderOpen },
     { key: "tools", label: "Tools", icon: Layers },
     { key: "stickers", label: "Stickers", icon: Tag },
+    { key: "students", label: "Students", icon: GraduationCap },
     { key: "text", label: "Text", icon: Type },
     { key: "records", label: "Records", icon: Archive },
   ] as const;
@@ -1486,12 +1636,13 @@ function Home({ session }: HomeProps) {
                   {activeTab === "files" && <FolderOpen className="h-5 w-5" />}
                   {activeTab === "tools" && <Layers className="h-5 w-5" />}
                   {activeTab === "stickers" && <Tag className="h-5 w-5" />}
+                  {activeTab === "students" && <GraduationCap className="h-5 w-5" />}
                   {activeTab === "text" && <Type className="h-5 w-5" />}
                   {activeTab === "records" && <Archive className="h-5 w-5" />}
                 </div>
                 <div>
                   <h1 className={`text-base font-extrabold tracking-tight capitalize ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
-                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : activeTab === "text" ? "Text Share" : "Records Management"}
+                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : activeTab === "students" ? "Students" : activeTab === "text" ? "Text Share" : "Records Management"}
                   </h1>
                   <p className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
                     Lanet Computers Ecosystem Portal
@@ -2647,6 +2798,205 @@ function Home({ session }: HomeProps) {
               </div>
             )}
 
+             {activeTab === "students" && (
+               <div className="space-y-6">
+                 <div>
+                   <h1 className={`text-2xl font-semibold tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                     Students Management
+                   </h1>
+                   <p className={`mt-1 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                     Track fee payments, balances, and course completion status.
+                   </p>
+                 </div>
+
+                 <section className={`rounded-none border p-4 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                     <div className="relative flex-1">
+                       <Search className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${darkMode ? "text-slate-500" : "text-slate-400"}`} />
+                       <input
+                         type="text"
+                         placeholder="Search students..."
+                         className={`h-11 w-full rounded-none border-none bg-transparent pl-11 pr-4 text-sm focus:ring-0 ${darkMode ? "text-slate-100 placeholder:text-slate-500" : "placeholder:text-slate-400"}`}
+                         value={studentSearchTerm}
+                         onChange={(e) => setStudentSearchTerm(e.target.value)}
+                       />
+                     </div>
+                     <button
+                       type="button"
+                       onClick={() => {
+                         resetStudentForm();
+                         setShowStudentForm(true);
+                       }}
+                       className="flex h-11 items-center gap-2 rounded-none bg-emerald-700 px-5 text-sm font-bold text-white hover:bg-emerald-800 transition"
+                     >
+                       <GraduationCap className="h-4 w-4" />
+                       Add Student
+                     </button>
+                   </div>
+                 </section>
+
+                 {showStudentForm && (
+                   <section className={`rounded-none border p-5 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                     <h2 className={`text-sm font-bold uppercase tracking-wider ${darkMode ? "text-slate-200" : "text-slate-800"}`}>
+                       {editingStudent ? "Update Student" : "New Student"}
+                     </h2>
+                     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                       <input
+                         type="text"
+                         value={studentName}
+                         onChange={(e) => setStudentName(e.target.value)}
+                         placeholder="Student name"
+                         className={`h-10 rounded-none border px-3 text-sm ${darkMode ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"}`}
+                       />
+                       <input
+                         type="text"
+                         value={studentCourse}
+                         onChange={(e) => setStudentCourse(e.target.value)}
+                         placeholder="Course"
+                         className={`h-10 rounded-none border px-3 text-sm ${darkMode ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"}`}
+                       />
+                       <input
+                         type="number"
+                         min="0"
+                         step="0.01"
+                         value={studentFeePaid}
+                         onChange={(e) => setStudentFeePaid(e.target.value)}
+                         placeholder="Fee paid"
+                         className={`h-10 rounded-none border px-3 text-sm ${darkMode ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"}`}
+                       />
+                       <input
+                         type="number"
+                         min="0"
+                         step="0.01"
+                         value={studentFeeTotal}
+                         onChange={(e) => setStudentFeeTotal(e.target.value)}
+                         placeholder="Fee supposed to pay"
+                         className={`h-10 rounded-none border px-3 text-sm ${darkMode ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"}`}
+                       />
+                     </div>
+                     <div className="mt-4 flex justify-end gap-3">
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setShowStudentForm(false);
+                           resetStudentForm();
+                         }}
+                         className={`rounded-none border px-4 py-2 text-sm font-bold ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+                       >
+                         Cancel
+                       </button>
+                       <button
+                         type="button"
+                         onClick={() => void handleSaveStudent()}
+                         disabled={savingStudent || !studentName.trim() || !studentCourse.trim()}
+                         className="rounded-none bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2"
+                       >
+                         {savingStudent ? <Loader className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                         {savingStudent ? "Saving..." : editingStudent ? "Update Student" : "Save Student"}
+                       </button>
+                     </div>
+                   </section>
+                 )}
+
+                 <div className="space-y-4">
+                   <div className="flex items-center justify-between">
+                     <h2 className={`text-xl font-black tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                       Students
+                     </h2>
+                     <span className={`rounded-none border px-4 py-1.5 text-[10px] font-black uppercase tracking-widest ${darkMode ? "border-slate-800 bg-slate-900 text-slate-400" : "border-slate-200 bg-slate-100 text-slate-500"}`}>
+                       {filteredStudents.length} Students
+                     </span>
+                   </div>
+
+                   {loadingStudents ? (
+                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                       {[1, 2, 3].map((i) => (
+                         <div key={i} className={`h-44 animate-pulse rounded-none border ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`} />
+                       ))}
+                     </div>
+                   ) : filteredStudents.length === 0 ? (
+                     <div className={`text-center py-16 rounded-none border ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                       <GraduationCap className={`mx-auto h-12 w-12 mb-3 stroke-1 ${darkMode ? "text-slate-700" : "text-slate-300"}`} />
+                       <p className={`text-sm font-semibold ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                         {studentSearchTerm ? "No matching students found" : "No students added yet"}
+                       </p>
+                     </div>
+                   ) : (
+                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                       {filteredStudents.map((student) => {
+                         const isOwner = student.owner_id === session.user.id;
+                         const balance = Number(student.fee_total) - Number(student.fee_paid);
+                         const hasBalance = balance > 0;
+                         return (
+                           <div key={student.id} className={`group flex flex-col rounded-none border p-5 transition-all hover:border-emerald-600/30 ${darkMode ? "border-slate-800 bg-slate-900 hover:shadow-2xl hover:shadow-slate-950" : "border-slate-200 bg-white hover:shadow-2xl hover:shadow-slate-200"}`}>
+                             <div className="flex items-start justify-between gap-3 mb-3">
+                               <div className="min-w-0">
+                                 <h3 className={`text-sm font-bold truncate ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                                   {student.name}
+                                 </h3>
+                                 <p className={`text-xs ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                                   {student.course}
+                                 </p>
+                               </div>
+                               <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-none border ${
+                                 hasBalance
+                                   ? darkMode
+                                     ? "border-yellow-800 bg-yellow-950/30 text-yellow-300"
+                                     : "border-yellow-200 bg-yellow-50 text-yellow-700"
+                                   : darkMode
+                                   ? "border-emerald-800 bg-emerald-950/30 text-emerald-300"
+                                   : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                               }`}>
+                                 {hasBalance ? "Has Balance" : "Completed"}
+                               </span>
+                             </div>
+
+                             <div className={`space-y-1.5 text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                               <p>Fee Paid: <span className="font-semibold">KES {Number(student.fee_paid).toLocaleString()}</span></p>
+                               <p>Expected Fee: <span className="font-semibold">KES {Number(student.fee_total).toLocaleString()}</span></p>
+                               <p>
+                                 Balance:{" "}
+                                 <span className={`font-semibold ${hasBalance ? "text-rose-600" : "text-emerald-600"}`}>
+                                   KES {Math.max(balance, 0).toLocaleString()}
+                                 </span>
+                               </p>
+                             </div>
+
+                             <div className={`mt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                               <span className="flex items-center gap-1">
+                                 <Clock className="h-3.5 w-3.5" />
+                                 {new Date(student.created_at).toLocaleDateString()}
+                               </span>
+                               {isOwner && <span className="text-emerald-600">Me</span>}
+                             </div>
+
+                             {isOwner && (
+                               <div className="mt-4 flex gap-2">
+                                 <button
+                                   type="button"
+                                   onClick={() => handleEditStudent(student)}
+                                   className={`flex-1 rounded-none border px-3 py-2 text-xs font-bold ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+                                 >
+                                   Update
+                                 </button>
+                                 <button
+                                   type="button"
+                                   onClick={() => setPendingDeleteStudent(student)}
+                                   className="flex-1 rounded-none border border-red-300 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50"
+                                 >
+                                   Delete
+                                 </button>
+                               </div>
+                             )}
+                           </div>
+                         );
+                       })}
+                     </div>
+                   )}
+                 </div>
+               </div>
+             )}
+
              {activeTab === "records" && (
                <div className="space-y-6">
                  <div>
@@ -2878,6 +3228,36 @@ function Home({ session }: HomeProps) {
                        className="rounded-none bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
                      >
                        {deletingRecord ? "Deleting..." : "Delete record"}
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             )}
+
+             {pendingDeleteStudent && (
+               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+                 <div className={`w-full max-w-md rounded-none border p-6 shadow-2xl ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                   <h3 className={`text-lg font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Confirm deletion</h3>
+                   <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-600"}`}>
+                     Are you sure you want to delete <span className="font-semibold">"{pendingDeleteStudent.name}"</span>?
+                     This action cannot be undone.
+                   </p>
+                   <div className="mt-6 flex justify-end gap-3">
+                     <button
+                       type="button"
+                       onClick={() => setPendingDeleteStudent(null)}
+                       disabled={deletingStudent}
+                       className={`rounded-none border px-4 py-2 text-sm font-bold disabled:opacity-50 ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+                     >
+                       Cancel
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => void handleDeleteStudent()}
+                       disabled={deletingStudent}
+                       className="rounded-none bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                     >
+                       {deletingStudent ? "Deleting..." : "Delete student"}
                      </button>
                    </div>
                  </div>
