@@ -114,4 +114,42 @@ on public.lc_records for delete
 to authenticated
 using (auth.uid() = owner_id);
 
+create table if not exists public.lc_students (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users not null default auth.uid(),
+  name text not null,
+  course text not null default '',
+  fee_paid numeric(10, 2) not null default 0,
+  fee_total numeric(10, 2) not null default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.lc_students enable row level security;
+
+drop policy if exists "Authenticated users can view students" on public.lc_students;
+drop policy if exists "Users can insert their own students" on public.lc_students;
+drop policy if exists "Users can update their own students" on public.lc_students;
+drop policy if exists "Users can delete their own students" on public.lc_students;
+
+create policy "Authenticated users can view students"
+on public.lc_students for select
+to authenticated
+using (true);
+
+create policy "Users can insert their own students"
+on public.lc_students for insert
+to authenticated
+with check (auth.uid() = owner_id);
+
+create policy "Users can update their own students"
+on public.lc_students for update
+to authenticated
+using (auth.uid() = owner_id)
+with check (auth.uid() = owner_id);
+
+create policy "Users can delete their own students"
+on public.lc_students for delete
+to authenticated
+using (auth.uid() = owner_id);
+
 select pg_notify('pgrst', 'reload schema');

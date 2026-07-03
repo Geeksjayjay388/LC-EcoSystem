@@ -40,7 +40,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/share" element={<Share />} />
+        <Route path="/share/*" element={<Share />} />
         <Route
           path="/"
           element={session ? <Navigate to="/home" replace /> : <LoginPage />}
