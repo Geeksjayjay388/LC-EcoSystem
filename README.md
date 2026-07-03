@@ -57,6 +57,18 @@ LC-Ecosystem was developed to solve these problems by creating a lightweight pri
 
 ---
 
+## 📱 Mobile Share Page (`/share`)
+- Mobile-first public upload page for customer self-service
+- Built for QR-code access (ideal for cyber-café walk-in uploads)
+- Supports images, PDFs, Word documents, ZIP files, and videos
+- Upload progress and upload success feedback
+- Uploaded files are saved directly into the existing **Shared Files** vault
+- Configurable upload limits via environment variables:
+  - `VITE_SHARE_MAX_SIZE`
+  - `VITE_SHARE_ALLOWED_TYPES`
+
+---
+
 ## 🖼️ Built-in File Preview System
 - Preview images directly in the browser
 - Integrated PDF viewer
@@ -68,6 +80,20 @@ LC-Ecosystem was developed to solve these problems by creating a lightweight pri
 - Real-time storage insights
 - User contribution tracking
 - Minimalist and responsive analytics UI
+
+---
+
+## 🎓 Students Management
+- Dedicated **Students** tab in the main dashboard
+- Add and update student records with:
+  - Student name
+  - Course
+  - Fee paid
+  - Expected total fee
+- Automatic balance tracking and status labeling:
+  - **Has Balance** when payment is pending
+  - **Completed** when full fee is paid
+- Shared visibility for authenticated users with owner-based update/delete controls
 
 ---
 
