@@ -5,6 +5,7 @@ import LoadingScreen from "./components/LoadingScreen";
 import { supabase } from "./lib/supabase";
 import Home from "./pages/Home";
 import LoginPage from "./pages/LoginPage";
+import Share from "./pages/Share";
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -39,6 +40,7 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/share" element={<Share />} />
         <Route
           path="/"
           element={session ? <Navigate to="/home" replace /> : <LoginPage />}

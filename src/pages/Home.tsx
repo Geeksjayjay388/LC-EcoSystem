@@ -33,7 +33,8 @@ import {
   Clock,
   Sparkles,
   Info,
-  Type
+  Type,
+  Archive
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -57,6 +58,16 @@ type SavedText = {
   created_at: string;
 };
 
+type RecordItem = {
+  id: string;
+  title: string;
+  category: string;
+  reference_number: string;
+  details: string;
+  owner_id: string;
+  created_at: string;
+};
+
 type WorkspacePdf = {
   id: string;
   name: string;
@@ -64,7 +75,7 @@ type WorkspacePdf = {
   pageCount: number;
 };
 
-type SidebarTab = "files" | "tools" | "stickers" | "students" | "text";
+type SidebarTab = "files" | "tools" | "stickers" | "students" | "text" | "records";
 type StickerType = "lipa-na-mpesa" | "paybill" | "pochi-la-biashara";
 
 type StickerField = {
@@ -303,6 +314,18 @@ function Home({ session }: HomeProps) {
   const [pendingDeleteText, setPendingDeleteText] = useState<SavedText | null>(null);
   const [deletingText, setDeletingText] = useState(false);
 
+  const [records, setRecords] = useState<RecordItem[]>([]);
+  const [loadingRecords, setLoadingRecords] = useState(true);
+  const [savingRecord, setSavingRecord] = useState(false);
+  const [recordSearchTerm, setRecordSearchTerm] = useState("");
+  const [pendingDeleteRecord, setPendingDeleteRecord] = useState<RecordItem | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState(false);
+  const [showRecordForm, setShowRecordForm] = useState(false);
+  const [recordTitle, setRecordTitle] = useState("");
+  const [recordCategory, setRecordCategory] = useState("KRA Pin");
+  const [recordReference, setRecordReference] = useState("");
+  const [recordDetails, setRecordDetails] = useState("");
+
   // Auto-Refresh & UI Update States
   const [dataRefreshInterval, setDataRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem("ecosystem-data-refresh-interval");
@@ -325,9 +348,10 @@ function Home({ session }: HomeProps) {
   const fetchFilesSilent = async () => {
     setIsDataRefreshing(true);
     try {
-      const [filesRes, textsRes] = await Promise.all([
+      const [filesRes, textsRes, recordsRes] = await Promise.all([
         supabase.from("lc_files").select("*").order("created_at", { ascending: false }),
-        supabase.from("lc_texts").select("*").order("created_at", { ascending: false })
+        supabase.from("lc_texts").select("*").order("created_at", { ascending: false }),
+        supabase.from("lc_records").select("*").order("created_at", { ascending: false })
       ]);
 
       if (filesRes.error) {
@@ -342,9 +366,15 @@ function Home({ session }: HomeProps) {
         setSavedTexts(textsRes.data ?? []);
       }
 
+      if (recordsRes.error) {
+        console.error("Silent records fetch error:", recordsRes.error.message);
+      } else {
+        setRecords(recordsRes.data ?? []);
+      }
+
       setLastSyncTime(new Date());
     } catch (err) {
-      console.error("Failed silently to fetch files or texts:", err);
+      console.error("Failed silently to fetch files, texts, or records:", err);
     } finally {
       setIsDataRefreshing(false);
     }
@@ -470,6 +500,69 @@ function Home({ session }: HomeProps) {
     setDeletingText(false);
   };
 
+  const fetchRecords = async () => {
+    setLoadingRecords(true);
+    const { data, error: fetchError } = await supabase
+      .from("lc_records")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (fetchError) {
+      console.error("Fetch records error:", fetchError.message);
+    } else {
+      setRecords(data ?? []);
+    }
+    setLoadingRecords(false);
+  };
+
+  const handleSaveRecord = async () => {
+    if (!recordTitle.trim() || !recordReference.trim()) return;
+
+    setSavingRecord(true);
+    setError(null);
+
+    const { error: insertError } = await supabase.from("lc_records").insert({
+      title: recordTitle.trim(),
+      category: recordCategory,
+      reference_number: recordReference.trim(),
+      details: recordDetails.trim(),
+    });
+
+    if (insertError) {
+      setError(`Failed to save record: ${insertError.message}`);
+    } else {
+      setUploadSuccessMessage("Successfully saved record.");
+      setRecordTitle("");
+      setRecordCategory("KRA Pin");
+      setRecordReference("");
+      setRecordDetails("");
+      setShowRecordForm(false);
+      await fetchRecords();
+    }
+    setSavingRecord(false);
+  };
+
+  const handleDeleteRecord = async () => {
+    if (!pendingDeleteRecord) return;
+
+    setDeletingRecord(true);
+    setError(null);
+
+    const { error: deleteError } = await supabase
+      .from("lc_records")
+      .delete()
+      .eq("id", pendingDeleteRecord.id);
+
+    if (deleteError) {
+      setError(`Failed to delete record: ${deleteError.message}`);
+    } else {
+      setUploadSuccessMessage("Successfully deleted record.");
+      setPendingDeleteRecord(null);
+      await fetchRecords();
+    }
+    setDeletingRecord(false);
+  };
+
   useEffect(() => {
     const hash = window.location.hash;
     if (!hash.startsWith("#text=")) return;
@@ -583,8 +676,9 @@ function Home({ session }: HomeProps) {
 
     Promise.all([
       supabase.from("lc_files").select("*").order("created_at", { ascending: false }),
-      supabase.from("lc_texts").select("*").order("created_at", { ascending: false })
-    ]).then(([filesRes, textsRes]) => {
+      supabase.from("lc_texts").select("*").order("created_at", { ascending: false }),
+      supabase.from("lc_records").select("*").order("created_at", { ascending: false })
+    ]).then(([filesRes, textsRes, recordsRes]) => {
       if (!active) return;
 
       if (filesRes.error) {
@@ -601,6 +695,13 @@ function Home({ session }: HomeProps) {
         setSavedTexts(textsRes.data ?? []);
       }
       setLoadingTexts(false);
+
+      if (recordsRes.error) {
+        console.error("Fetch records error:", recordsRes.error.message);
+      } else {
+        setRecords(recordsRes.data ?? []);
+      }
+      setLoadingRecords(false);
     });
 
     return () => {
@@ -961,6 +1062,17 @@ function Home({ session }: HomeProps) {
     return savedTexts.filter(t => t.content.toLowerCase().includes(textSearchTerm.toLowerCase()));
   }, [savedTexts, textSearchTerm]);
 
+  const filteredRecords = useMemo(() => {
+    const term = recordSearchTerm.toLowerCase().trim();
+    if (!term) return records;
+    return records.filter(r =>
+      r.title.toLowerCase().includes(term) ||
+      r.category.toLowerCase().includes(term) ||
+      r.reference_number.toLowerCase().includes(term) ||
+      r.details.toLowerCase().includes(term)
+    );
+  }, [records, recordSearchTerm]);
+
   const currentStickerTemplate = STICKER_TEMPLATES[stickerType];
   const currentStickerStyles = STICKER_FIELD_STYLE_DEFAULTS[stickerType] || {};
 
@@ -1090,6 +1202,7 @@ function Home({ session }: HomeProps) {
     { key: "stickers", label: "Stickers", icon: Tag },
     { key: "text", label: "Text", icon: Type },
     { key: "students", label: "Students Portal", icon: GraduationCap },
+    { key: "records", label: "Records", icon: Archive },
   ] as const;
 
   return (
@@ -1249,16 +1362,17 @@ function Home({ session }: HomeProps) {
               <div className="flex items-center gap-3">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-none border ${
                   darkMode ? "border-slate-800 bg-slate-900 text-emerald-400" : "border-slate-100 bg-emerald-50 text-emerald-700"
-                }`}>
+                 }`}>
                   {activeTab === "files" && <FolderOpen className="h-5 w-5" />}
                   {activeTab === "tools" && <Layers className="h-5 w-5" />}
                   {activeTab === "stickers" && <Tag className="h-5 w-5" />}
                   {activeTab === "text" && <Type className="h-5 w-5" />}
                   {activeTab === "students" && <GraduationCap className="h-5 w-5" />}
+                  {activeTab === "records" && <Archive className="h-5 w-5" />}
                 </div>
                 <div>
                   <h1 className={`text-base font-extrabold tracking-tight capitalize ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
-                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : activeTab === "text" ? "Text Share" : "Students Administration"}
+                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : activeTab === "text" ? "Text Share" : activeTab === "students" ? "Students Administration" : "Records Management"}
                   </h1>
                   <p className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
                     Lanet Computers Ecosystem Portal
@@ -2414,14 +2528,251 @@ function Home({ session }: HomeProps) {
               </div>
             )}
 
-            {activeTab === "students" && (
-              <div className={`rounded-none border p-6 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
-                <h1 className={`text-2xl font-semibold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Students Portal</h1>
-                <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-                  Students portal content will appear here.
-                </p>
-              </div>
-            )}
+             {activeTab === "students" && (
+               <div className={`rounded-none border p-6 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                 <h1 className={`text-2xl font-semibold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Students Portal</h1>
+                 <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                   Students portal content will appear here.
+                 </p>
+               </div>
+             )}
+
+             {activeTab === "records" && (
+               <div className="space-y-6">
+                 <div>
+                   <h1 className={`text-2xl font-semibold tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                     Records Management
+                   </h1>
+                   <p className={`mt-1 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                     Store and manage records like KRA PINs, certificates, and student registrations.
+                   </p>
+                 </div>
+
+                 <section className={`rounded-none border p-4 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                     <div className="relative flex-1">
+                       <Search className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${darkMode ? "text-slate-500" : "text-slate-400"}`} />
+                       <input
+                         type="text"
+                         placeholder="Search records..."
+                         className={`h-11 w-full rounded-none border-none bg-transparent pl-11 pr-4 text-sm focus:ring-0 ${darkMode ? "text-slate-100 placeholder:text-slate-500" : "placeholder:text-slate-400"}`}
+                         value={recordSearchTerm}
+                         onChange={(e) => setRecordSearchTerm(e.target.value)}
+                       />
+                     </div>
+                     <button
+                       type="button"
+                       onClick={() => setShowRecordForm(true)}
+                       className="flex h-11 items-center gap-2 rounded-none bg-emerald-700 px-5 text-sm font-bold text-white hover:bg-emerald-800 transition"
+                     >
+                       <Archive className="h-4 w-4" />
+                       New Record
+                     </button>
+                   </div>
+                 </section>
+
+                 <div className="space-y-4">
+                   <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-4">
+                       <div className="h-10 w-1 rounded-none bg-emerald-700" />
+                       <div>
+                         <h2 className={`text-xl font-black tracking-tight ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                           Stored Records
+                         </h2>
+                         <p className={`mt-0.5 text-xs font-medium uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                           Central Record Feed
+                         </p>
+                       </div>
+                     </div>
+                     <span className={`rounded-none border px-4 py-1.5 text-[10px] font-black uppercase tracking-widest ${darkMode ? "border-slate-800 bg-slate-900 text-slate-400" : "border-slate-200 bg-slate-100 text-slate-500"}`}>
+                       {filteredRecords.length} Records Found
+                     </span>
+                   </div>
+
+                   {loadingRecords ? (
+                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                       {[1, 2, 3].map((i) => (
+                         <div key={i} className={`h-40 animate-pulse rounded-none border ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`} />
+                       ))}
+                     </div>
+                   ) : filteredRecords.length === 0 ? (
+                     <div className={`text-center py-16 rounded-none border ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                       <Archive className={`mx-auto h-12 w-12 mb-3 stroke-1 ${darkMode ? "text-slate-700" : "text-slate-300"}`} />
+                       <p className={`text-sm font-semibold ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                         {recordSearchTerm ? "No matching records found" : "No records stored yet"}
+                       </p>
+                     </div>
+                   ) : (
+                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                       {filteredRecords.map((record) => {
+                         const isOwner = record.owner_id === session.user.id;
+                         return (
+                           <div key={record.id} className={`group flex flex-col rounded-none border p-5 transition-all hover:border-emerald-600/30 ${darkMode ? "border-slate-800 bg-slate-900 hover:shadow-2xl hover:shadow-slate-950" : "border-slate-200 bg-white hover:shadow-2xl hover:shadow-slate-200"}`}>
+                             <div className="flex items-center justify-between mb-3">
+                               <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-none border ${darkMode ? "border-slate-800 bg-slate-950 text-slate-300" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+                                 {record.category}
+                               </span>
+                               {isOwner && (
+                                 <button
+                                   onClick={() => setPendingDeleteRecord(record)}
+                                   className={`rounded-none border p-2 transition-all active:scale-95 opacity-0 group-hover:opacity-100 ${darkMode ? "border-slate-700 bg-slate-800 text-slate-400 hover:border-red-500 hover:text-red-500" : "border-slate-200 bg-white text-slate-400 hover:border-red-200 hover:text-red-500"}`}
+                                 >
+                                   <Trash2 className="h-4 w-4" />
+                                 </button>
+                               )}
+                             </div>
+                             <h3 className={`mb-1 text-sm font-bold truncate ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
+                               {record.title}
+                             </h3>
+                             <p className={`text-xs font-mono mb-3 ${darkMode ? "text-emerald-400" : "text-emerald-700"}`}>
+                               {record.reference_number}
+                             </p>
+                             <p className={`whitespace-pre-wrap text-xs leading-relaxed max-h-24 overflow-y-auto mb-4 scrollbar-thin ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                               {record.details}
+                             </p>
+                             <div className={`mt-auto flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                               <span className="flex items-center gap-1">
+                                 <Clock className="h-3.5 w-3.5" />
+                                 {new Date(record.created_at).toLocaleDateString()}
+                               </span>
+                               {isOwner && (
+                                 <span className={`text-emerald-600 px-1.5 py-0.5 rounded-none font-black text-[9px] tracking-widest uppercase ${darkMode ? "text-emerald-400 bg-emerald-500/10" : "text-emerald-700 bg-emerald-50"}`}>
+                                   Me
+                                 </span>
+                               )}
+                             </div>
+                           </div>
+                         );
+                       })}
+                     </div>
+                   )}
+                 </div>
+               </div>
+             )}
+
+             {showRecordForm && (
+               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+                 <div className={`w-full max-w-lg rounded-none border p-6 shadow-2xl ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                   <h3 className={`text-lg font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Add New Record</h3>
+                   <p className={`mt-1 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                     Enter the record details below.
+                   </p>
+
+                   <div className="mt-5 space-y-4">
+                     <div>
+                       <label className={`mb-1 block text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                         Title
+                       </label>
+                       <input
+                         type="text"
+                         value={recordTitle}
+                         onChange={(e) => setRecordTitle(e.target.value)}
+                         placeholder="e.g., Business License, PIN Certificate"
+                         className={`h-10 w-full rounded-none border px-3 text-sm ${darkMode ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"}`}
+                       />
+                     </div>
+
+                     <div>
+                       <label className={`mb-1 block text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                         Category
+                       </label>
+                       <select
+                         value={recordCategory}
+                         onChange={(e) => setRecordCategory(e.target.value)}
+                         className={`h-10 w-full rounded-none border px-3 text-sm ${darkMode ? "border-slate-700 bg-slate-950 text-slate-100" : "border-slate-300 bg-white text-slate-900"}`}
+                       >
+                         <option value="KRA Pin">KRA Pin</option>
+                         <option value="Certificate">Certificate</option>
+                         <option value="Student Registration">Student Registration</option>
+                         <option value="Other">Other</option>
+                       </select>
+                     </div>
+
+                     <div>
+                       <label className={`mb-1 block text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                         Reference Number
+                       </label>
+                       <input
+                         type="text"
+                         value={recordReference}
+                         onChange={(e) => setRecordReference(e.target.value)}
+                         placeholder="Enter reference number..."
+                         className={`h-10 w-full rounded-none border px-3 text-sm ${darkMode ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"}`}
+                       />
+                     </div>
+
+                     <div>
+                       <label className={`mb-1 block text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                         Details / Notes
+                       </label>
+                       <textarea
+                         value={recordDetails}
+                         onChange={(e) => setRecordDetails(e.target.value)}
+                         placeholder="Add any additional notes..."
+                         rows={4}
+                         className={`w-full rounded-none border px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-emerald-600/50 focus:border-emerald-600/50 ${darkMode ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"}`}
+                       />
+                     </div>
+                   </div>
+
+                   <div className="mt-6 flex justify-end gap-3">
+                     <button
+                       type="button"
+                       onClick={() => {
+                         setShowRecordForm(false);
+                         setRecordTitle("");
+                         setRecordCategory("KRA Pin");
+                         setRecordReference("");
+                         setRecordDetails("");
+                       }}
+                       disabled={savingRecord}
+                       className={`rounded-none border px-4 py-2 text-sm font-bold disabled:opacity-50 ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+                     >
+                       Cancel
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => void handleSaveRecord()}
+                       disabled={savingRecord || !recordTitle.trim() || !recordReference.trim()}
+                       className="rounded-none bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2"
+                     >
+                       {savingRecord ? <Loader className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                       {savingRecord ? "Saving..." : "Save Record"}
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             )}
+
+             {pendingDeleteRecord && (
+               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+                 <div className={`w-full max-w-md rounded-none border p-6 shadow-2xl ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
+                   <h3 className={`text-lg font-bold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Confirm deletion</h3>
+                   <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-600"}`}>
+                     Are you sure you want to delete <span className="font-semibold">"{pendingDeleteRecord.title}"</span>?
+                     This action cannot be undone.
+                   </p>
+                   <div className="mt-6 flex justify-end gap-3">
+                     <button
+                       type="button"
+                       onClick={() => setPendingDeleteRecord(null)}
+                       disabled={deletingRecord}
+                       className={`rounded-none border px-4 py-2 text-sm font-bold disabled:opacity-50 ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+                     >
+                       Cancel
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => void handleDeleteRecord()}
+                       disabled={deletingRecord}
+                       className="rounded-none bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                     >
+                       {deletingRecord ? "Deleting..." : "Delete record"}
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             )}
           </main>
         </div>
       </div>
