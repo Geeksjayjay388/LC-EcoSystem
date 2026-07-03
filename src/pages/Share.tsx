@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Upload, Camera, Check, X } from "lucide-react";
+import { Upload, Camera } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 function humanFileSize(bytes: number) {
@@ -29,7 +29,10 @@ export default function Share() {
   const MAX_SIZE = Number(import.meta.env.VITE_SHARE_MAX_SIZE) || 50 * 1024 * 1024; // 50MB
   const ALLOWED = (import.meta.env.VITE_SHARE_ALLOWED_TYPES || 
     ".jpg,.jpeg,.png,.gif,.webp,.svg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip,video/*"
-  ).split(",").map(s => s.trim()).filter(Boolean);
+  )
+    .split(",")
+    .map((s: string) => s.trim())
+    .filter(Boolean);
 
   const acceptAttr = ALLOWED.join(",");
 
@@ -42,10 +45,13 @@ export default function Share() {
       return;
     }
     // basic type check
-    if (ALLOWED.length && !ALLOWED.some((t) => {
-      if (t.includes("/")) return f.type.startsWith(t.split("/")[0]);
-      return f.name.toLowerCase().endsWith(t.replace(".", ""));
-    })) {
+    if (
+      ALLOWED.length &&
+      !ALLOWED.some((t: string) => {
+        if (t.includes("/")) return f.type.startsWith(t.split("/")[0]);
+        return f.name.toLowerCase().endsWith(t.replace(".", ""));
+      })
+    ) {
       // allow video/* mime pattern
       if (!f.type.startsWith("video/")) {
         setError("File type not allowed.");

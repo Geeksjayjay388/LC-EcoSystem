@@ -34,7 +34,8 @@ import {
   Sparkles,
   Info,
   Type,
-  Archive
+  Archive,
+  Menu
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -268,6 +269,7 @@ function Home({ session }: HomeProps) {
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<EcosystemFile | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("files");
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -1213,9 +1215,128 @@ function Home({ session }: HomeProps) {
           : "bg-[#f8fafc] text-slate-900"
       }`}
     >
-      <div className="flex min-h-screen">
+      {/* Mobile Header */}
+      <header className={`md:hidden flex items-center justify-between px-4 py-3 border-b sticky top-0 z-50 ${
+        darkMode ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className={`flex h-9 w-9 items-center justify-center rounded-none border ${
+            darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-slate-50"
+          }`}>
+            <img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" />
+          </div>
+          <div>
+            <h2 className="text-xs font-semibold tracking-tight uppercase">LANET COMPUTERS</h2>
+            <p className="text-[10px] text-emerald-700 font-medium leading-none">Eco-System</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDarkMode((prev) => !prev)}
+            className={`flex h-9 w-9 items-center justify-center rounded-none border transition ${
+              darkMode ? "border-slate-800 text-slate-400 hover:bg-slate-900" : "border-slate-200 text-slate-500 hover:bg-slate-100"
+            }`}
+          >
+            {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          <button
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            className={`flex h-9 w-9 items-center justify-center rounded-none border transition ${
+              darkMode ? "border-slate-800 text-slate-400 hover:bg-slate-900" : "border-slate-200 text-slate-500 hover:bg-slate-100"
+            }`}
+          >
+            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Drawer Overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden flex">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/50 transition-opacity" 
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          
+          {/* Drawer Content */}
+          <aside className={`relative flex w-80 max-w-[85vw] h-full flex-col p-4 border-r animate-in slide-in-from-left duration-200 z-50 ${
+            darkMode ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            <div className="mb-8 flex items-center justify-between pt-2">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-none border ${
+                  darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-slate-50"
+                }`}>
+                  <img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold tracking-tight uppercase">LANET COMPUTERS</h2>
+                  <p className="text-xs text-emerald-700 font-medium leading-none">Eco-System</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex h-9 w-9 items-center justify-center rounded-none border transition ${
+                  darkMode ? "border-slate-800 text-slate-400 hover:bg-slate-900" : "border-slate-200 text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <nav className="space-y-2">
+              {sidebarItems.map((item) => {
+                const isActive = item.key === activeTab;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      setActiveTab(item.key);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-none px-4 py-3 text-sm font-medium transition ${
+                      isActive
+                        ? "bg-emerald-700 text-white"
+                        : darkMode
+                        ? "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="mt-auto space-y-3">
+              <div className="px-4">
+                <p className={`truncate text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                  {session.user.email}
+                </p>
+              </div>
+              
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className={`flex h-11 w-full items-center gap-3 rounded-none border px-4 text-sm font-medium transition ${
+                  darkMode
+                    ? "border-slate-800 text-slate-300 hover:bg-red-950/30 hover:text-red-400"
+                    : "border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600"
+                }`}
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row min-h-screen">
         <aside
-          className={`sticky top-0 h-screen border-r transition-all duration-300 ${
+          className={`sticky top-0 h-screen border-r transition-all duration-300 hidden md:block ${
             sidebarCollapsed ? "w-20" : "w-72"
           } ${
             darkMode
@@ -1354,7 +1475,7 @@ function Home({ session }: HomeProps) {
         </aside>
 
         <div className="min-w-0 flex-1">
-          <main className="mx-auto max-w-7xl p-6 lg:p-10">
+          <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-10">
             {/* Global Top Bar */}
             <div className={`mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-none border p-4 ${
               darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
@@ -1529,7 +1650,7 @@ function Home({ session }: HomeProps) {
                   <img
                     src="/lanet_computers_banner.png"
                     alt="Lanet Computers Eco-System"
-                    className="w-full h-auto object-cover max-h-[300px]"
+                    className="w-full h-auto object-cover max-h-[150px] sm:max-h-[300px]"
                   />
                 </div>
                 <p className={`text-sm font-semibold ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
@@ -1541,7 +1662,7 @@ function Home({ session }: HomeProps) {
                     darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
                   }`}
                 >
-                  <div className="relative flex-1">
+                  <div className="relative flex-1 w-full">
                     <Search
                       className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${
                         darkMode ? "text-slate-500" : "text-slate-400"
@@ -1559,7 +1680,7 @@ function Home({ session }: HomeProps) {
                   </div>
 
                   <label
-                    className={`flex h-11 cursor-pointer items-center gap-2 rounded-none px-5 text-sm font-medium text-white transition ${
+                    className={`flex h-11 cursor-pointer items-center justify-center gap-2 rounded-none px-5 text-sm font-medium text-white transition w-full md:w-auto shrink-0 ${
                       uploading ? "bg-emerald-600" : "bg-emerald-700 hover:bg-emerald-800"
                     }`}
                   >
@@ -1752,9 +1873,9 @@ function Home({ session }: HomeProps) {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap w-full md:w-auto">
                       <label
-                        className={`flex h-11 cursor-pointer items-center gap-2 rounded-none px-4 text-xs font-bold uppercase tracking-widest text-white transition ${
+                        className={`col-span-2 sm:col-auto flex h-11 cursor-pointer items-center justify-center gap-2 rounded-none px-4 text-xs font-bold uppercase tracking-widest text-white transition ${
                           pdfWorking ? "bg-red-500" : "bg-red-600 hover:bg-red-700"
                         }`}
                       >
@@ -1774,7 +1895,7 @@ function Home({ session }: HomeProps) {
                         type="button"
                         onClick={() => void handlePdfMerge()}
                         disabled={pdfWorking || pdfWorkspaceFiles.length < 2}
-                        className="flex h-11 items-center gap-2 rounded-none border border-red-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-slate-950 dark:text-red-300 dark:hover:bg-red-950/20"
+                        className="flex h-11 items-center justify-center gap-2 rounded-none border border-red-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-slate-950 dark:text-red-300 dark:hover:bg-red-950/20"
                       >
                         <Layers className="h-4 w-4" />
                         Merge
@@ -1784,7 +1905,7 @@ function Home({ session }: HomeProps) {
                         type="button"
                         onClick={() => void handlePdfEdit()}
                         disabled={pdfWorking || !selectedPdf}
-                        className="flex h-11 items-center gap-2 rounded-none border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                        className="flex h-11 items-center justify-center gap-2 rounded-none border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                       >
                         <Pencil className="h-4 w-4" />
                         Edit
@@ -1794,7 +1915,7 @@ function Home({ session }: HomeProps) {
                         type="button"
                         onClick={() => void handlePdfDetach()}
                         disabled={pdfWorking || !selectedPdf}
-                        className="flex h-11 items-center gap-2 rounded-none border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                        className="flex h-11 items-center justify-center gap-2 rounded-none border border-slate-200 bg-white px-4 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                       >
                         <Scissors className="h-4 w-4" />
                         Split
@@ -1804,7 +1925,7 @@ function Home({ session }: HomeProps) {
                         type="button"
                         onClick={() => void handlePdfSave()}
                         disabled={pdfWorking || !pdfOutputBytes}
-                        className="flex h-11 items-center gap-2 rounded-none bg-emerald-600 px-4 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="col-span-2 sm:col-auto flex h-11 items-center justify-center gap-2 rounded-none bg-emerald-600 px-4 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Save className="h-4 w-4" />
                         Save
