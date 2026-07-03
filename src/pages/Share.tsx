@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Upload, Camera } from "lucide-react";
+import { Upload } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 function humanFileSize(bytes: number) {
@@ -143,12 +143,6 @@ export default function Share() {
     e.currentTarget.value = ""; // reset
   };
 
-  const handleTakePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null;
-    handleFileChosen(f);
-    e.currentTarget.value = "";
-  };
-
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
@@ -239,12 +233,6 @@ export default function Share() {
               <label className="inline-flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-none text-sm cursor-pointer">
                 Choose File
                 <input onChange={handleChooseFile} accept={acceptAttr} type="file" className="hidden" />
-              </label>
-
-              <label className="inline-flex items-center gap-2 bg-emerald-600 text-white px-3 py-2 rounded-none text-sm cursor-pointer">
-                <Camera />
-                Take Photo
-                <input onChange={handleTakePhoto} accept="image/*" capture="environment" type="file" className="hidden" />
               </label>
 
               <button onClick={handleUpload} disabled={!file || uploading} className="inline-flex items-center gap-2 bg-[#0f172a] text-white px-3 py-2 rounded-none text-sm">

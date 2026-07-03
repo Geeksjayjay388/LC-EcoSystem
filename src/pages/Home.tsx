@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   FolderOpen,
   Tag,
-  GraduationCap,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -69,16 +68,6 @@ type RecordItem = {
   created_at: string;
 };
 
-type StudentItem = {
-  id: string;
-  name: string;
-  course: string;
-  fee_paid: number;
-  fee_total: number;
-  owner_id: string;
-  created_at: string;
-};
-
 type WorkspacePdf = {
   id: string;
   name: string;
@@ -86,7 +75,7 @@ type WorkspacePdf = {
   pageCount: number;
 };
 
-type SidebarTab = "files" | "tools" | "stickers" | "students" | "text" | "records";
+type SidebarTab = "files" | "tools" | "stickers" | "text" | "records";
 type StickerType = "lipa-na-mpesa" | "paybill" | "pochi-la-biashara";
 
 type StickerField = {
@@ -338,20 +327,6 @@ function Home({ session }: HomeProps) {
   const [recordReference, setRecordReference] = useState("");
   const [recordDetails, setRecordDetails] = useState("");
 
-  const [students, setStudents] = useState<StudentItem[]>([]);
-  const [loadingStudents, setLoadingStudents] = useState(true);
-  const [savingStudent, setSavingStudent] = useState(false);
-  const [deletingStudent, setDeletingStudent] = useState(false);
-  const [showStudentForm, setShowStudentForm] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<StudentItem | null>(null);
-  const [pendingDeleteStudent, setPendingDeleteStudent] = useState<StudentItem | null>(null);
-  const [studentSearchTerm, setStudentSearchTerm] = useState("");
-
-  const [studentName, setStudentName] = useState("");
-  const [studentCourse, setStudentCourse] = useState("");
-  const [studentFeePaid, setStudentFeePaid] = useState("");
-  const [studentFeeTotal, setStudentFeeTotal] = useState("");
-
   // Auto-Refresh & UI Update States
   const [dataRefreshInterval, setDataRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem("ecosystem-data-refresh-interval");
@@ -374,11 +349,10 @@ function Home({ session }: HomeProps) {
   const fetchFilesSilent = async () => {
     setIsDataRefreshing(true);
     try {
-      const [filesRes, textsRes, recordsRes, studentsRes] = await Promise.all([
+      const [filesRes, textsRes, recordsRes] = await Promise.all([
         supabase.from("lc_files").select("*").order("created_at", { ascending: false }),
         supabase.from("lc_texts").select("*").order("created_at", { ascending: false }),
-        supabase.from("lc_records").select("*").order("created_at", { ascending: false }),
-        supabase.from("lc_students").select("*").order("created_at", { ascending: false })
+        supabase.from("lc_records").select("*").order("created_at", { ascending: false })
       ]);
 
       if (filesRes.error) {
@@ -399,15 +373,9 @@ function Home({ session }: HomeProps) {
         setRecords(recordsRes.data ?? []);
       }
 
-      if (studentsRes.error) {
-        console.error("Silent students fetch error:", studentsRes.error.message);
-      } else {
-        setStudents(studentsRes.data ?? []);
-      }
-
       setLastSyncTime(new Date());
     } catch (err) {
-      console.error("Failed silently to fetch files, texts, records, or students:", err);
+      console.error("Failed silently to fetch files, texts, or records:", err);
     } finally {
       setIsDataRefreshing(false);
     }
@@ -546,99 +514,6 @@ function Home({ session }: HomeProps) {
       setRecords(data ?? []);
     }
     setLoadingRecords(false);
-  };
-
-  const fetchStudents = async () => {
-    setLoadingStudents(true);
-    const { data, error: fetchError } = await supabase
-      .from("lc_students")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (fetchError) {
-      console.error("Fetch students error:", fetchError.message);
-    } else {
-      setStudents(data ?? []);
-    }
-    setLoadingStudents(false);
-  };
-
-  const handleSaveStudent = async () => {
-    if (!studentName.trim() || !studentCourse.trim()) return;
-
-    const paid = parseFloat(studentFeePaid) || 0;
-    const total = parseFloat(studentFeeTotal) || 0;
-
-    setSavingStudent(true);
-    setError(null);
-
-    if (editingStudent) {
-      const { error: updateError } = await supabase
-        .from("lc_students")
-        .update({
-          name: studentName.trim(),
-          course: studentCourse.trim(),
-          fee_paid: paid,
-          fee_total: total
-        })
-        .eq("id", editingStudent.id);
-
-      if (updateError) {
-        console.error("Update student error:", updateError.message);
-        setError(updateError.message);
-      } else {
-        setEditingStudent(null);
-        setShowStudentForm(false);
-        setStudentName("");
-        setStudentCourse("");
-        setStudentFeePaid("");
-        setStudentFeeTotal("");
-        setUploadSuccessMessage("Student updated successfully!");
-        await fetchStudents();
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from("lc_students")
-        .insert({
-          name: studentName.trim(),
-          course: studentCourse.trim(),
-          fee_paid: paid,
-          fee_total: total
-        });
-
-      if (insertError) {
-        console.error("Insert student error:", insertError.message);
-        setError(insertError.message);
-      } else {
-        setShowStudentForm(false);
-        setStudentName("");
-        setStudentCourse("");
-        setStudentFeePaid("");
-        setStudentFeeTotal("");
-        setUploadSuccessMessage("Student added successfully!");
-        await fetchStudents();
-      }
-    }
-    setSavingStudent(false);
-  };
-
-  const handleDeleteStudent = async () => {
-    if (!pendingDeleteStudent) return;
-
-    setDeletingStudent(true);
-    const { error: deleteError } = await supabase
-      .from("lc_students")
-      .delete()
-      .eq("id", pendingDeleteStudent.id);
-
-    if (deleteError) {
-      console.error("Delete student error:", deleteError.message);
-    } else {
-      setUploadSuccessMessage("Student deleted successfully!");
-      setPendingDeleteStudent(null);
-      await fetchStudents();
-    }
-    setDeletingStudent(false);
   };
 
   const handleSaveRecord = async () => {
@@ -803,9 +678,8 @@ function Home({ session }: HomeProps) {
     Promise.all([
       supabase.from("lc_files").select("*").order("created_at", { ascending: false }),
       supabase.from("lc_texts").select("*").order("created_at", { ascending: false }),
-      supabase.from("lc_records").select("*").order("created_at", { ascending: false }),
-      supabase.from("lc_students").select("*").order("created_at", { ascending: false })
-    ]).then(([filesRes, textsRes, recordsRes, studentsRes]) => {
+      supabase.from("lc_records").select("*").order("created_at", { ascending: false })
+    ]).then(([filesRes, textsRes, recordsRes]) => {
       if (!active) return;
 
       if (filesRes.error) {
@@ -830,12 +704,6 @@ function Home({ session }: HomeProps) {
       }
       setLoadingRecords(false);
 
-      if (studentsRes.error) {
-        console.error("Fetch students error:", studentsRes.error.message);
-      } else {
-        setStudents(studentsRes.data ?? []);
-      }
-      setLoadingStudents(false);
     });
 
     return () => {
@@ -1335,7 +1203,6 @@ function Home({ session }: HomeProps) {
     { key: "tools", label: "Tools", icon: Layers },
     { key: "stickers", label: "Stickers", icon: Tag },
     { key: "text", label: "Text", icon: Type },
-    { key: "students", label: "Students Portal", icon: GraduationCap },
     { key: "records", label: "Records", icon: Archive },
   ] as const;
 
@@ -1620,12 +1487,11 @@ function Home({ session }: HomeProps) {
                   {activeTab === "tools" && <Layers className="h-5 w-5" />}
                   {activeTab === "stickers" && <Tag className="h-5 w-5" />}
                   {activeTab === "text" && <Type className="h-5 w-5" />}
-                  {activeTab === "students" && <GraduationCap className="h-5 w-5" />}
                   {activeTab === "records" && <Archive className="h-5 w-5" />}
                 </div>
                 <div>
                   <h1 className={`text-base font-extrabold tracking-tight capitalize ${darkMode ? "text-slate-100" : "text-slate-900"}`}>
-                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : activeTab === "text" ? "Text Share" : activeTab === "students" ? "Students Administration" : "Records Management"}
+                    {activeTab === "files" ? "Shared Vault Files" : activeTab === "tools" ? "PDF Workspace Tools" : activeTab === "stickers" ? "Sticker Studio" : activeTab === "text" ? "Text Share" : "Records Management"}
                   </h1>
                   <p className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
                     Lanet Computers Ecosystem Portal
@@ -2780,15 +2646,6 @@ function Home({ session }: HomeProps) {
                 </div>
               </div>
             )}
-
-             {activeTab === "students" && (
-               <div className={`rounded-none border p-6 ${darkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
-                 <h1 className={`text-2xl font-semibold ${darkMode ? "text-slate-100" : "text-slate-900"}`}>Students Portal</h1>
-                 <p className={`mt-2 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-                   Students portal content will appear here.
-                 </p>
-               </div>
-             )}
 
              {activeTab === "records" && (
                <div className="space-y-6">
